@@ -408,6 +408,7 @@ fieldset {
 
 .icon-button,
 .primary-button,
+.danger-button,
 .secondary-button {
   display: inline-flex;
   align-items: center;
@@ -452,6 +453,19 @@ fieldset {
 
 .danger {
   color: var(--red);
+}
+
+.danger-button {
+  min-width: 124px;
+  padding: 0 16px;
+  border: 1px solid var(--red);
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.danger-button:hover {
+  border-color: var(--red);
+  filter: brightness(0.97);
 }
 
 .primary-button {

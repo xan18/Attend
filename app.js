@@ -23,6 +23,7 @@ const elements = {
   poolList: document.querySelector("#poolList"),
   newPoolButton: document.querySelector("#newPoolButton"),
   deletePoolButton: document.querySelector("#deletePoolButton"),
+  deletePoolTextButton: document.querySelector("#deletePoolTextButton"),
   poolForm: document.querySelector("#poolForm"),
   poolFormTitle: document.querySelector("#poolFormTitle"),
   poolNameInput: document.querySelector("#poolNameInput"),
@@ -74,24 +75,8 @@ function wireEvents() {
     elements.poolNameInput.focus();
   });
 
-  elements.deletePoolButton.addEventListener("click", () => {
-    if (!editingPoolId) return;
-
-    const pool = getPool(editingPoolId);
-    if (!pool) return;
-
-    const confirmed = window.confirm(`Удалить бассейн "${pool.name}" вместе со всеми группами и отметками?`);
-    if (!confirmed) return;
-
-    state.pools = state.pools.filter((item) => item.id !== editingPoolId);
-    state.groups = state.groups.filter((group) => group.poolId !== editingPoolId);
-    state.selectedPoolId = state.pools[0]?.id || null;
-    state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
-    editingPoolId = state.selectedPoolId;
-    editingGroupId = state.selectedGroupId;
-    saveState();
-    render();
-  });
+  elements.deletePoolButton.addEventListener("click", deleteEditingPool);
+  elements.deletePoolTextButton.addEventListener("click", deleteEditingPool);
 
   elements.poolForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -285,6 +270,25 @@ function wireEvents() {
   });
 }
 
+function deleteEditingPool() {
+  if (!editingPoolId) return;
+
+  const pool = getPool(editingPoolId);
+  if (!pool) return;
+
+  const confirmed = window.confirm(`Удалить бассейн "${pool.name}" вместе со всеми группами и отметками?`);
+  if (!confirmed) return;
+
+  state.pools = state.pools.filter((item) => item.id !== editingPoolId);
+  state.groups = state.groups.filter((group) => group.poolId !== editingPoolId);
+  state.selectedPoolId = state.pools[0]?.id || null;
+  state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
+  editingPoolId = state.selectedPoolId;
+  editingGroupId = state.selectedGroupId;
+  saveState();
+  render();
+}
+
 function loadState() {
   const fallback = {
     pools: [],
@@ -468,6 +472,7 @@ function renderPoolForm() {
   const pool = editingPoolId ? getPool(editingPoolId) : null;
   elements.poolFormTitle.textContent = pool ? "Настройки бассейна" : "Новый бассейн";
   elements.deletePoolButton.disabled = !pool;
+  elements.deletePoolTextButton.disabled = !pool;
   elements.poolNameInput.value = pool?.name || "";
 }
 
