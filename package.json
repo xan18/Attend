@@ -1,0 +1,12 @@
+{
+  "name": "attend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173 --open",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --open"
+  },
+  "devDependencies": {
+    "vite": "^8.0.10"
+  }
+}
