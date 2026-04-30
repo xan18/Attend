@@ -615,7 +615,7 @@ fieldset {
 .journal-table th:first-child {
   left: 0;
   z-index: 5;
-  min-width: 260px;
+  min-width: 300px;
   text-align: left;
 }
 
@@ -638,16 +638,16 @@ fieldset {
   position: sticky;
   left: 0;
   z-index: 2;
-  width: 260px;
-  min-width: 260px;
-  max-width: 260px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
   padding: 8px;
   background: var(--table-cell);
 }
 
 .student-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 74px;
+  grid-template-columns: minmax(0, 1fr) 114px;
   align-items: center;
   gap: 8px;
 }
@@ -677,6 +677,7 @@ fieldset {
 }
 
 .edit-student,
+.delete-student-everywhere,
 .remove-student {
   width: 34px;
   min-width: 34px;
@@ -698,7 +699,16 @@ fieldset {
   color: var(--red);
 }
 
+.delete-student-everywhere {
+  color: var(--red);
+}
+
 .remove-student:hover {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+
+.delete-student-everywhere:hover {
   border-color: var(--red);
   background: var(--red-soft);
 }
@@ -916,8 +926,8 @@ fieldset {
 
   .student-cell,
   .journal-table th:first-child {
-    width: 220px;
-    min-width: 220px;
-    max-width: 220px;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
   }
 }

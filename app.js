@@ -268,6 +268,7 @@ function wireEvents() {
     const attendanceButton = event.target.closest("[data-student-id][data-date]");
     const editButton = event.target.closest("[data-edit-student-id]");
     const removeButton = event.target.closest("[data-remove-student-id]");
+    const deleteEverywhereButton = event.target.closest("[data-delete-student-everywhere-id]");
 
     if (attendanceButton) {
       setNextAttendance(attendanceButton.dataset.studentId, attendanceButton.dataset.date);
@@ -281,6 +282,11 @@ function wireEvents() {
 
     if (removeButton) {
       removeStudent(removeButton.dataset.removeStudentId);
+      return;
+    }
+
+    if (deleteEverywhereButton) {
+      deleteStudentEverywhere(deleteEverywhereButton.dataset.deleteStudentEverywhereId);
     }
   });
 
@@ -727,8 +733,11 @@ function renderJournal() {
                 <button class="icon-button edit-student" type="button" data-edit-student-id="${student.id}" aria-label="Редактировать ученика" title="Редактировать ученика">
                   <i data-lucide="pencil"></i>
                 </button>
-                <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Удалить ученика" title="Удалить ученика">
+                <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Убрать ученика с этого месяца" title="Убрать с этого месяца и дальше">
                   <i data-lucide="x"></i>
+                </button>
+                <button class="icon-button delete-student-everywhere" type="button" data-delete-student-everywhere-id="${student.id}" aria-label="Удалить ученика из всех месяцев" title="Удалить из всех месяцев">
+                  <i data-lucide="trash-2"></i>
                 </button>
               </span>
             </span>
@@ -826,6 +835,33 @@ function removeStudent(studentId) {
   if (!confirmed) return;
 
   student.removedFromMonth = monthValue;
+
+  saveState();
+  renderJournal();
+  renderStats();
+  renderGroups();
+  refreshIcons();
+}
+
+function deleteStudentEverywhere(studentId) {
+  const group = getSelectedGroup();
+  if (!group) return;
+
+  const student = group.students.find((item) => item.id === studentId);
+  if (!student) return;
+
+  const confirmed = window.confirm(
+    `Полностью удалить ученика "${student.name}" из всех месяцев и стереть все его отметки? Это действие нельзя отменить.`,
+  );
+  if (!confirmed) return;
+
+  group.students = group.students.filter((item) => item.id !== studentId);
+  Object.keys(group.attendance).forEach((date) => {
+    delete group.attendance[date][studentId];
+    if (!Object.keys(group.attendance[date]).length) {
+      delete group.attendance[date];
+    }
+  });
 
   saveState();
   renderJournal();
