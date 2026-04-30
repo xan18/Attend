@@ -17,109 +17,90 @@
     <script src="./app.js" defer></script>
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <header class="brand">
-          <div class="brand-mark">A</div>
-          <div>
-            <p class="eyebrow">тренерский журнал</p>
-            <h1>Посещаемость</h1>
+    <div class="app-frame">
+      <main class="home-view" id="homeView">
+        <header class="home-hero">
+          <div class="brand">
+            <div class="brand-mark">A</div>
+            <div>
+              <p class="eyebrow">тренерский журнал</p>
+              <h1>Посещаемость</h1>
+            </div>
           </div>
+
+          <div class="home-summary" id="homeSummary"></div>
         </header>
 
-        <section class="panel theme-panel">
-          <div class="panel-heading">
-            <h2>Тема</h2>
-            <i data-lucide="palette"></i>
-          </div>
-          <div class="theme-options" id="themeOptions" aria-label="Выбор темы"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <h2>Бассейны</h2>
-            <button class="icon-button" id="newPoolButton" type="button" aria-label="Новый бассейн" title="Новый бассейн">
-              <i data-lucide="folder-plus"></i>
-            </button>
-          </div>
-          <div class="pool-list" id="poolList"></div>
-        </section>
-
-        <section class="panel pool-editor" id="poolEditor">
-          <div class="panel-heading">
-            <h2 id="poolFormTitle">Бассейн</h2>
-            <button class="icon-button danger" id="deletePoolButton" type="button" aria-label="Удалить бассейн" title="Удалить бассейн">
-              <i data-lucide="trash-2"></i>
-            </button>
-          </div>
-
-          <form id="poolForm">
-            <label>
-              <span>Название</span>
-              <input id="poolNameInput" type="text" placeholder="Например: Максимум" required />
-            </label>
-
-            <button class="primary-button" type="submit">
-              <i data-lucide="save"></i>
-              Сохранить
-            </button>
-
-            <button class="danger-button" id="deletePoolTextButton" type="button">
-              <i data-lucide="trash-2"></i>
-              Удалить бассейн
-            </button>
-          </form>
-        </section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <h2 id="groupsPanelTitle">Группы</h2>
-            <button class="icon-button" id="newGroupButton" type="button" aria-label="Новая группа" title="Новая группа">
-              <i data-lucide="plus"></i>
-            </button>
-          </div>
-          <div class="group-list" id="groupList"></div>
-        </section>
-
-        <section class="panel group-editor" id="groupEditor">
-          <div class="panel-heading">
-            <h2 id="groupFormTitle">Группа</h2>
-            <button class="icon-button danger" id="deleteGroupButton" type="button" aria-label="Удалить группу" title="Удалить группу">
-              <i data-lucide="trash-2"></i>
-            </button>
-          </div>
-
-          <form id="groupForm">
-            <div class="time-grid">
-              <label>
-                <span>Начало</span>
-                <input id="groupStartInput" type="time" required />
-              </label>
-              <label>
-                <span>Конец</span>
-                <input id="groupEndInput" type="time" />
-              </label>
+        <section class="home-grid">
+          <section class="panel pool-browser">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">места работы</p>
+                <h2>Бассейны</h2>
+              </div>
+              <button class="primary-button" id="newPoolButton" type="button">
+                <i data-lucide="folder-plus"></i>
+                Новый бассейн
+              </button>
             </div>
+            <div class="pool-list" id="poolList"></div>
+          </section>
 
-            <fieldset>
-              <legend>Дни тренировок</legend>
-              <div class="day-pills" id="dayPills"></div>
-            </fieldset>
+          <aside class="home-sidebar">
+            <section class="panel theme-panel">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">оформление</p>
+                  <h2>Тема</h2>
+                </div>
+                <i data-lucide="palette"></i>
+              </div>
+              <div class="theme-options" id="themeOptions" aria-label="Выбор темы"></div>
+            </section>
 
-            <button class="primary-button" type="submit">
-              <i data-lucide="save"></i>
-              Сохранить
-            </button>
-          </form>
+            <section class="panel pool-editor" id="poolEditor">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">настройки</p>
+                  <h2 id="poolFormTitle">Бассейн</h2>
+                </div>
+                <button class="icon-button danger" id="deletePoolButton" type="button" aria-label="Удалить бассейн" title="Удалить бассейн">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+
+              <form id="poolForm">
+                <label>
+                  <span>Название</span>
+                  <input id="poolNameInput" type="text" placeholder="Например: Максимум" required />
+                </label>
+
+                <button class="primary-button" type="submit">
+                  <i data-lucide="save"></i>
+                  Сохранить
+                </button>
+
+                <button class="danger-button" id="deletePoolTextButton" type="button">
+                  <i data-lucide="trash-2"></i>
+                  Удалить бассейн
+                </button>
+              </form>
+            </section>
+          </aside>
         </section>
-      </aside>
+      </main>
 
-      <main class="workspace">
-        <section class="topbar">
-          <div>
-            <p class="eyebrow">активная группа</p>
-            <h2 id="activeGroupTitle">Группа</h2>
-            <p class="muted" id="activeGroupSchedule"></p>
+      <main class="pool-view" id="poolView" hidden>
+        <header class="pool-header">
+          <button class="secondary-button" id="backHomeButton" type="button">
+            <i data-lucide="arrow-left"></i>
+            Главная
+          </button>
+
+          <div class="pool-title-block">
+            <p class="eyebrow">бассейн</p>
+            <h1 id="currentPoolTitle">Бассейн</h1>
+            <p class="muted" id="currentPoolSubtitle"></p>
           </div>
 
           <div class="toolbar">
@@ -135,37 +116,98 @@
               CSV
             </button>
           </div>
-        </section>
+        </header>
 
-        <section class="student-strip">
-          <form id="studentForm" class="student-form">
-            <label>
-              <span>Новый ученик</span>
-              <input id="studentNameInput" type="text" placeholder="Имя и фамилия" required />
-            </label>
-            <label class="student-year-field">
-              <span>Год рождения</span>
-              <input id="studentBirthYearInput" type="number" min="1900" max="2100" placeholder="2014" inputmode="numeric" />
-            </label>
-            <button class="primary-button" type="submit">
-              <i data-lucide="user-plus"></i>
-              Добавить
-            </button>
-          </form>
+        <div class="pool-layout">
+          <aside class="pool-rail">
+            <section class="panel">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">расписание</p>
+                  <h2 id="groupsPanelTitle">Группы</h2>
+                </div>
+                <button class="icon-button" id="newGroupButton" type="button" aria-label="Новая группа" title="Новая группа">
+                  <i data-lucide="plus"></i>
+                </button>
+              </div>
+              <div class="group-list" id="groupList"></div>
+            </section>
 
-          <div class="stats" id="stats"></div>
-        </section>
+            <section class="panel group-editor" id="groupEditor">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">настройки</p>
+                  <h2 id="groupFormTitle">Группа</h2>
+                </div>
+                <button class="icon-button danger" id="deleteGroupButton" type="button" aria-label="Удалить группу" title="Удалить группу">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
 
-        <section class="journal-wrap">
-          <div class="journal-scroll">
-            <table class="journal-table" id="journalTable"></table>
-          </div>
-          <div class="empty-state" id="emptyState">
-            <i data-lucide="calendar-days"></i>
-            <h3>Выберите группу и добавьте учеников</h3>
-            <p>После этого здесь появится журнал с датами тренировок выбранного месяца.</p>
-          </div>
-        </section>
+              <form id="groupForm">
+                <div class="time-grid">
+                  <label>
+                    <span>Начало</span>
+                    <input id="groupStartInput" type="time" required />
+                  </label>
+                  <label>
+                    <span>Конец</span>
+                    <input id="groupEndInput" type="time" />
+                  </label>
+                </div>
+
+                <fieldset>
+                  <legend>Дни тренировок</legend>
+                  <div class="day-pills" id="dayPills"></div>
+                </fieldset>
+
+                <button class="primary-button" type="submit">
+                  <i data-lucide="save"></i>
+                  Сохранить
+                </button>
+              </form>
+            </section>
+          </aside>
+
+          <section class="journal-page">
+            <section class="topbar">
+              <div>
+                <p class="eyebrow">активная группа</p>
+                <h2 id="activeGroupTitle">Группа</h2>
+                <p class="muted" id="activeGroupSchedule"></p>
+              </div>
+              <div class="stats" id="stats"></div>
+            </section>
+
+            <section class="student-strip">
+              <form id="studentForm" class="student-form">
+                <label>
+                  <span>Новый ученик</span>
+                  <input id="studentNameInput" type="text" placeholder="Имя и фамилия" required />
+                </label>
+                <label class="student-year-field">
+                  <span>Год рождения</span>
+                  <input id="studentBirthYearInput" type="number" min="1900" max="2100" placeholder="2014" inputmode="numeric" />
+                </label>
+                <button class="primary-button" type="submit">
+                  <i data-lucide="user-plus"></i>
+                  Добавить
+                </button>
+              </form>
+            </section>
+
+            <section class="journal-wrap">
+              <div class="journal-scroll">
+                <table class="journal-table" id="journalTable"></table>
+              </div>
+              <div class="empty-state" id="emptyState">
+                <i data-lucide="calendar-days"></i>
+                <h3>Выберите группу и добавьте учеников</h3>
+                <p>После этого здесь появится журнал с датами тренировок выбранного месяца.</p>
+              </div>
+            </section>
+          </section>
+        </div>
       </main>
     </div>
 

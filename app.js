@@ -20,6 +20,12 @@ const themeChoices = [
 ];
 
 const elements = {
+  homeView: document.querySelector("#homeView"),
+  poolView: document.querySelector("#poolView"),
+  homeSummary: document.querySelector("#homeSummary"),
+  backHomeButton: document.querySelector("#backHomeButton"),
+  currentPoolTitle: document.querySelector("#currentPoolTitle"),
+  currentPoolSubtitle: document.querySelector("#currentPoolSubtitle"),
   poolList: document.querySelector("#poolList"),
   newPoolButton: document.querySelector("#newPoolButton"),
   deletePoolButton: document.querySelector("#deletePoolButton"),
@@ -61,6 +67,7 @@ let state = loadState();
 let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let editingStudentId = null;
+let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
 
 applyTheme(state.theme);
@@ -79,7 +86,12 @@ wireEvents();
 render();
 
 function wireEvents() {
+  elements.backHomeButton.addEventListener("click", () => {
+    showHome();
+  });
+
   elements.newPoolButton.addEventListener("click", () => {
+    showHome();
     editingPoolId = null;
     renderPoolForm();
     elements.poolNameInput.focus();
@@ -126,7 +138,7 @@ function wireEvents() {
     editingPoolId = state.selectedPoolId;
     editingGroupId = state.selectedGroupId;
     saveState();
-    render();
+    showPool();
   });
 
   elements.newGroupButton.addEventListener("click", () => {
@@ -337,7 +349,23 @@ function deleteEditingPool() {
   state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
   editingPoolId = state.selectedPoolId;
   editingGroupId = state.selectedGroupId;
+  currentView = "home";
   saveState();
+  render();
+}
+
+function showHome() {
+  currentView = "home";
+  render();
+}
+
+function showPool() {
+  if (!getSelectedPool()) {
+    currentView = "home";
+  } else {
+    currentView = "pool";
+  }
+
   render();
 }
 
@@ -523,6 +551,8 @@ function render() {
     editingGroupId = state.selectedGroupId;
   }
 
+  renderView();
+  renderHomeSummary();
   renderPools();
   renderGroups();
   renderThemeOptions();
@@ -532,6 +562,30 @@ function render() {
   renderJournal();
   renderStats();
   refreshIcons();
+}
+
+function renderView() {
+  const hasPool = Boolean(getSelectedPool());
+  if (currentView === "pool" && !hasPool) {
+    currentView = "home";
+  }
+
+  elements.homeView.hidden = currentView !== "home";
+  elements.poolView.hidden = currentView !== "pool";
+}
+
+function renderHomeSummary() {
+  const groupCount = state.groups.length;
+  const activeStudentCount = state.groups.reduce(
+    (total, group) => total + getVisibleStudentsForMonth(group, elements.monthInput.value).length,
+    0,
+  );
+
+  elements.homeSummary.innerHTML = `
+    <span class="stat-pill">${state.pools.length} ${pluralize(state.pools.length, ["бассейн", "бассейна", "бассейнов"])}</span>
+    <span class="stat-pill">${groupCount} ${pluralize(groupCount, ["группа", "группы", "групп"])}</span>
+    <span class="stat-pill">${activeStudentCount} ${pluralize(activeStudentCount, ["ученик", "ученика", "учеников"])}</span>
+  `;
 }
 
 function renderPools() {
@@ -544,10 +598,14 @@ function renderPools() {
     .map((pool) => {
       const active = pool.id === state.selectedPoolId ? " active" : "";
       const groupCount = state.groups.filter((group) => group.poolId === pool.id).length;
+      const studentCount = state.groups
+        .filter((group) => group.poolId === pool.id)
+        .reduce((total, group) => total + getVisibleStudentsForMonth(group, elements.monthInput.value).length, 0);
       return `
         <button class="pool-item${active}" type="button" data-pool-id="${pool.id}">
           <span class="pool-name">${escapeHtml(pool.name)}</span>
-          <span class="pool-meta">${groupCount} ${pluralize(groupCount, ["группа", "группы", "групп"])}</span>
+          <span class="pool-meta">${groupCount} ${pluralize(groupCount, ["группа", "группы", "групп"])} · ${studentCount} ${pluralize(studentCount, ["ученик", "ученика", "учеников"])}</span>
+          <span class="pool-cta">Открыть журнал</span>
         </button>
       `;
     })
@@ -581,7 +639,11 @@ function renderGroups() {
   const groups = getGroupsForSelectedPool();
   const monthValue = elements.monthInput.value;
 
-  elements.groupsPanelTitle.textContent = pool ? `Группы: ${pool.name}` : "Группы";
+  elements.currentPoolTitle.textContent = pool?.name || "Бассейн";
+  elements.currentPoolSubtitle.textContent = pool
+    ? `${groups.length} ${pluralize(groups.length, ["группа", "группы", "групп"])} в расписании`
+    : "Выберите бассейн на главной.";
+  elements.groupsPanelTitle.textContent = "Группы";
   elements.newGroupButton.disabled = !pool;
 
   if (!pool) {
