@@ -477,6 +477,7 @@ button:disabled {
 .pool-cta {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   width: fit-content;
   min-height: 30px;
   padding: 0 10px;
@@ -485,6 +486,24 @@ button:disabled {
   background: var(--surface);
   font-size: 0.82rem;
   font-weight: 900;
+}
+
+.pool-cta svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pool-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pool-selection-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .pool-meta,
@@ -1068,6 +1087,11 @@ fieldset {
 
   .pool-list {
     grid-template-columns: 1fr;
+  }
+
+  .pool-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .day-pills {

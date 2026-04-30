@@ -131,16 +131,35 @@ function wireEvents() {
   });
 
   elements.poolList.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-pool-id]");
-    if (!button) return;
+    const openButton = event.target.closest("[data-open-pool-id]");
+    const poolCard = event.target.closest("[data-pool-id]");
+    if (!poolCard) return;
 
-    state.selectedPoolId = button.dataset.poolId;
+    selectPool(poolCard.dataset.poolId);
+
+    if (openButton) {
+      showPool();
+      return;
+    }
+
+    render();
+  });
+
+  elements.poolList.addEventListener("dblclick", (event) => {
+    const poolCard = event.target.closest("[data-pool-id]");
+    if (!poolCard) return;
+
+    selectPool(poolCard.dataset.poolId);
+    showPool();
+  });
+
+  function selectPool(poolId) {
+    state.selectedPoolId = poolId;
     state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
     editingPoolId = state.selectedPoolId;
     editingGroupId = state.selectedGroupId;
     saveState();
-    showPool();
-  });
+  }
 
   elements.newGroupButton.addEventListener("click", () => {
     if (!state.selectedPoolId) {
@@ -642,10 +661,16 @@ function renderPools() {
         .filter((group) => group.poolId === pool.id)
         .reduce((total, group) => total + getVisibleStudentsForMonth(group, elements.monthInput.value).length, 0);
       return `
-        <button class="pool-item${active}" type="button" data-pool-id="${pool.id}">
+        <button class="pool-item${active}" type="button" data-pool-id="${pool.id}" aria-pressed="${pool.id === state.selectedPoolId}">
           <span class="pool-name">${escapeHtml(pool.name)}</span>
           <span class="pool-meta">${groupCount} ${pluralize(groupCount, ["группа", "группы", "групп"])} · ${studentCount} ${pluralize(studentCount, ["ученик", "ученика", "учеников"])}</span>
-          <span class="pool-cta">Открыть журнал</span>
+          <span class="pool-card-footer">
+            <span class="pool-selection-label">${pool.id === editingPoolId ? "Выбран для настроек" : "Нажмите для настроек"}</span>
+            <span class="pool-cta" data-open-pool-id="${pool.id}">
+              <i data-lucide="arrow-right"></i>
+              Открыть журнал
+            </span>
+          </span>
         </button>
       `;
     })
