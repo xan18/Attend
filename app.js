@@ -67,6 +67,7 @@ let state = loadState();
 let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let editingStudentId = null;
+let draggedGroupId = null;
 let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
 
@@ -222,6 +223,45 @@ function wireEvents() {
     editingGroupId = state.selectedGroupId;
     saveState();
     render();
+  });
+
+  elements.groupList.addEventListener("dragstart", (event) => {
+    const item = event.target.closest("[data-group-id]");
+    if (!item) return;
+
+    draggedGroupId = item.dataset.groupId;
+    item.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draggedGroupId);
+  });
+
+  elements.groupList.addEventListener("dragover", (event) => {
+    if (!draggedGroupId) return;
+
+    const item = event.target.closest("[data-group-id]");
+    if (!item || item.dataset.groupId === draggedGroupId) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    showGroupDropPosition(item, getGroupDropPosition(event, item));
+  });
+
+  elements.groupList.addEventListener("drop", (event) => {
+    if (!draggedGroupId) return;
+
+    const item = event.target.closest("[data-group-id]");
+    if (!item || item.dataset.groupId === draggedGroupId) return;
+
+    event.preventDefault();
+    reorderGroup(draggedGroupId, item.dataset.groupId, getGroupDropPosition(event, item));
+    clearGroupDragState();
+  });
+
+  elements.groupList.addEventListener("dragend", clearGroupDragState);
+  elements.groupList.addEventListener("dragleave", (event) => {
+    if (!elements.groupList.contains?.(event.relatedTarget)) {
+      clearGroupDropState();
+    }
   });
 
   elements.dayPills.addEventListener("click", (event) => {
@@ -657,18 +697,65 @@ function renderGroups() {
   }
 
   elements.groupList.innerHTML = groups
-    .map((group) => {
+        .map((group) => {
       const active = group.id === state.selectedGroupId ? " active" : "";
       const activeStudentCount = getVisibleStudentsForMonth(group, monthValue).length;
       return `
-        <button class="group-item${active}" type="button" data-group-id="${group.id}">
-          <span class="group-name">${escapeHtml(group.start)}</span>
-          <span class="group-meta">${group.end ? `до ${escapeHtml(group.end)} · ` : ""}${formatDays(group.days)}</span>
-          <span class="group-meta">${activeStudentCount} ${pluralize(activeStudentCount, ["ученик", "ученика", "учеников"])} в месяце</span>
+        <button class="group-item${active}" type="button" draggable="true" data-group-id="${group.id}">
+          <span class="group-drag-handle" aria-hidden="true">
+            <i data-lucide="grip-vertical"></i>
+          </span>
+          <span class="group-details">
+            <span class="group-name">${escapeHtml(group.start)}</span>
+            <span class="group-meta">${group.end ? `до ${escapeHtml(group.end)} · ` : ""}${formatDays(group.days)}</span>
+            <span class="group-meta">${activeStudentCount} ${pluralize(activeStudentCount, ["ученик", "ученика", "учеников"])} в месяце</span>
+          </span>
         </button>
       `;
     })
     .join("");
+}
+
+function reorderGroup(draggedId, targetId, position) {
+  if (!draggedId || !targetId || draggedId === targetId) return;
+
+  const dragged = getGroup(draggedId);
+  const target = getGroup(targetId);
+  if (!dragged || !target || dragged.poolId !== target.poolId || dragged.poolId !== state.selectedPoolId) return;
+
+  const poolGroups = getGroupsForSelectedPool();
+  const nextPoolGroups = poolGroups.filter((group) => group.id !== draggedId);
+  const targetIndex = nextPoolGroups.findIndex((group) => group.id === targetId);
+  if (targetIndex === -1) return;
+
+  const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+  nextPoolGroups.splice(insertIndex, 0, dragged);
+  state.groups = [...state.groups.filter((group) => group.poolId !== state.selectedPoolId), ...nextPoolGroups];
+  saveState();
+  renderGroups();
+}
+
+function getGroupDropPosition(event, item) {
+  const rect = item.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2 ? "after" : "before";
+}
+
+function showGroupDropPosition(item, position) {
+  clearGroupDropState();
+  item.classList.add(position === "after" ? "drop-after" : "drop-before");
+}
+
+function clearGroupDropState() {
+  elements.groupList.querySelectorAll?.("[data-group-id]").forEach((item) => {
+    item.classList.remove("drop-before", "drop-after");
+  });
+}
+
+function clearGroupDragState() {
+  draggedGroupId = null;
+  elements.groupList.querySelectorAll?.("[data-group-id]").forEach((item) => {
+    item.classList.remove("dragging", "drop-before", "drop-after");
+  });
 }
 
 function renderGroupForm() {

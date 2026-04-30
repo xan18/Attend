@@ -407,6 +407,58 @@ button:disabled {
   padding: 16px;
 }
 
+.group-item {
+  position: relative;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  cursor: grab;
+}
+
+.group-item:active {
+  cursor: grabbing;
+}
+
+.group-item.dragging {
+  opacity: 0.55;
+}
+
+.group-item.drop-before::before,
+.group-item.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.group-item.drop-before::before {
+  top: -6px;
+}
+
+.group-item.drop-after::after {
+  bottom: -6px;
+}
+
+.group-drag-handle {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  color: var(--muted);
+}
+
+.group-drag-handle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.group-details {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
 .pool-item.active,
 .group-item.active {
   border-color: var(--teal);
