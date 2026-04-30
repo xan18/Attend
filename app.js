@@ -252,6 +252,7 @@ function wireEvents() {
       id: createId("student"),
       name,
       birthYear,
+      activeFromMonth: elements.monthInput.value,
     });
 
     elements.studentNameInput.value = "";
@@ -936,7 +937,9 @@ function getVisibleStudentsForMonth(group, monthValue) {
 }
 
 function isStudentVisibleInMonth(student, monthValue) {
-  return !student.removedFromMonth || monthValue < student.removedFromMonth;
+  const isAfterStart = !student.activeFromMonth || student.activeFromMonth <= monthValue;
+  const isBeforeRemoval = !student.removedFromMonth || monthValue < student.removedFromMonth;
+  return isAfterStart && isBeforeRemoval;
 }
 
 function applyTheme(theme) {
