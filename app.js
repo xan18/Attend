@@ -231,7 +231,9 @@ function wireEvents() {
   elements.monthInput.addEventListener("change", () => {
     state.month = elements.monthInput.value || toMonthValue(new Date());
     saveState();
+    renderGroups();
     renderJournal();
+    renderStats();
   });
 
   elements.studentForm.addEventListener("submit", (event) => {
@@ -257,6 +259,7 @@ function wireEvents() {
     saveState();
     renderJournal();
     renderStats();
+    renderGroups();
     elements.studentNameInput.focus();
   });
 
@@ -569,6 +572,7 @@ function renderPoolForm() {
 function renderGroups() {
   const pool = getSelectedPool();
   const groups = getGroupsForSelectedPool();
+  const monthValue = elements.monthInput.value;
 
   elements.groupsPanelTitle.textContent = pool ? `Группы: ${pool.name}` : "Группы";
   elements.newGroupButton.disabled = !pool;
@@ -586,11 +590,12 @@ function renderGroups() {
   elements.groupList.innerHTML = groups
     .map((group) => {
       const active = group.id === state.selectedGroupId ? " active" : "";
+      const activeStudentCount = getVisibleStudentsForMonth(group, monthValue).length;
       return `
         <button class="group-item${active}" type="button" data-group-id="${group.id}">
           <span class="group-name">${escapeHtml(group.start)}</span>
           <span class="group-meta">${group.end ? `до ${escapeHtml(group.end)} · ` : ""}${formatDays(group.days)}</span>
-          <span class="group-meta">${group.students.length} ${pluralize(group.students.length, ["ученик", "ученика", "учеников"])}</span>
+          <span class="group-meta">${activeStudentCount} ${pluralize(activeStudentCount, ["ученик", "ученика", "учеников"])} в месяце</span>
         </button>
       `;
     })
@@ -648,14 +653,15 @@ function renderActiveGroup() {
 
 function renderJournal() {
   const group = getSelectedGroup();
-  if (!group || !group.students.length) {
+  const visibleStudents = group ? getVisibleStudentsForMonth(group, elements.monthInput.value) : [];
+  if (!group || !visibleStudents.length) {
     elements.journalTable.innerHTML = "";
     elements.emptyState.classList.add("visible");
     elements.emptyState.querySelector("h3").textContent = group
-      ? "Добавьте учеников в группу"
+      ? "В этом месяце нет активных учеников"
       : "Выберите группу и добавьте учеников";
     elements.emptyState.querySelector("p").textContent = group
-      ? "После добавления первого ученика здесь появится журнал выбранного месяца."
+      ? "Добавьте ученика или выберите предыдущий месяц, где ученик еще был в группе."
       : "После этого здесь появится журнал с датами тренировок выбранного месяца.";
     refreshIcons();
     return;
@@ -689,7 +695,7 @@ function renderJournal() {
     )
     .join("");
 
-  const rows = group.students
+  const rows = visibleStudents
     .map((student) => {
       const summary = getStudentSummary(group, student.id, dates);
       const birthYear = student.birthYear ? `${escapeHtml(student.birthYear)} г.р.` : "год не указан";
@@ -756,10 +762,13 @@ function renderStats() {
   }
 
   const dates = getTrainingDates(group, elements.monthInput.value);
+  const visibleStudents = getVisibleStudentsForMonth(group, elements.monthInput.value);
+  const visibleStudentIds = new Set(visibleStudents.map((student) => student.id));
   const totals = dates.reduce(
     (acc, date) => {
       const dayMarks = group.attendance[date.iso] || {};
-      Object.values(dayMarks).forEach((mark) => {
+      Object.entries(dayMarks).forEach(([studentId, mark]) => {
+        if (!visibleStudentIds.has(studentId)) return;
         if (mark === "+") acc.present += 1;
         if (mark === "-") acc.absent += 1;
       });
@@ -769,7 +778,7 @@ function renderStats() {
   );
 
   elements.stats.innerHTML = `
-    <span class="stat-pill">${group.students.length} ${pluralize(group.students.length, ["ученик", "ученика", "учеников"])}</span>
+    <span class="stat-pill">${visibleStudents.length} ${pluralize(visibleStudents.length, ["ученик", "ученика", "учеников"])}</span>
     <span class="stat-pill">${dates.length} ${pluralize(dates.length, ["тренировка", "тренировки", "тренировок"])}</span>
     <span class="stat-pill">+ ${totals.present}</span>
     <span class="stat-pill">- ${totals.absent}</span>
@@ -779,6 +788,7 @@ function renderStats() {
 function setNextAttendance(studentId, date) {
   const group = getSelectedGroup();
   if (!group) return;
+  if (!getVisibleStudentsForMonth(group, elements.monthInput.value).some((student) => student.id === studentId)) return;
 
   if (!group.attendance[date]) {
     group.attendance[date] = {};
@@ -808,16 +818,13 @@ function removeStudent(studentId) {
   const student = group.students.find((item) => item.id === studentId);
   if (!student) return;
 
-  const confirmed = window.confirm(`Удалить ученика "${student.name}" и его отметки?`);
+  const monthValue = elements.monthInput.value;
+  const confirmed = window.confirm(
+    `Убрать ученика "${student.name}" из группы с ${formatMonthLabel(monthValue)} и следующих месяцев? В предыдущих месяцах он останется в журнале.`,
+  );
   if (!confirmed) return;
 
-  group.students = group.students.filter((item) => item.id !== studentId);
-  Object.keys(group.attendance).forEach((date) => {
-    delete group.attendance[date][studentId];
-    if (!Object.keys(group.attendance[date]).length) {
-      delete group.attendance[date];
-    }
-  });
+  student.removedFromMonth = monthValue;
 
   saveState();
   renderJournal();
@@ -832,9 +839,10 @@ function exportCsv() {
   if (!group) return;
 
   const dates = getTrainingDates(group, elements.monthInput.value);
+  const visibleStudents = getVisibleStudentsForMonth(group, elements.monthInput.value);
   const rows = [
     ["Ученик", "Год рождения", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"],
-    ...group.students.map((student) => {
+    ...visibleStudents.map((student) => {
       const summary = getStudentSummary(group, student.id, dates);
       return [
         student.name,
@@ -898,6 +906,7 @@ function shiftMonth(delta) {
   elements.monthInput.value = toMonthValue(date);
   state.month = elements.monthInput.value;
   saveState();
+  renderGroups();
   renderJournal();
   renderStats();
 }
@@ -922,6 +931,14 @@ function getGroupsForSelectedPool() {
   return state.groups.filter((group) => group.poolId === state.selectedPoolId);
 }
 
+function getVisibleStudentsForMonth(group, monthValue) {
+  return group.students.filter((student) => isStudentVisibleInMonth(student, monthValue));
+}
+
+function isStudentVisibleInMonth(student, monthValue) {
+  return !student.removedFromMonth || monthValue < student.removedFromMonth;
+}
+
 function applyTheme(theme) {
   const normalized = themeChoices.some((choice) => choice.value === theme) ? theme : "white";
   state.theme = normalized;
@@ -943,6 +960,12 @@ function formatTimeRange(group) {
 
 function formatMonthName(date) {
   return new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(date);
+}
+
+function formatMonthLabel(monthValue) {
+  const [year, month] = monthValue.split("-").map(Number);
+  const date = new Date(year, month - 1, 1);
+  return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date);
 }
 
 function toMonthValue(date) {
