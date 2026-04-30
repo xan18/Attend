@@ -37,7 +37,38 @@
 
         <section class="panel">
           <div class="panel-heading">
-            <h2>Группы</h2>
+            <h2>Бассейны</h2>
+            <button class="icon-button" id="newPoolButton" type="button" aria-label="Новый бассейн" title="Новый бассейн">
+              <i data-lucide="folder-plus"></i>
+            </button>
+          </div>
+          <div class="pool-list" id="poolList"></div>
+        </section>
+
+        <section class="panel pool-editor" id="poolEditor">
+          <div class="panel-heading">
+            <h2 id="poolFormTitle">Бассейн</h2>
+            <button class="icon-button danger" id="deletePoolButton" type="button" aria-label="Удалить бассейн" title="Удалить бассейн">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
+
+          <form id="poolForm">
+            <label>
+              <span>Название</span>
+              <input id="poolNameInput" type="text" placeholder="Например: Максимум" required />
+            </label>
+
+            <button class="primary-button" type="submit">
+              <i data-lucide="save"></i>
+              Сохранить
+            </button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2 id="groupsPanelTitle">Группы</h2>
             <button class="icon-button" id="newGroupButton" type="button" aria-label="Новая группа" title="Новая группа">
               <i data-lucide="plus"></i>
             </button>
@@ -54,11 +85,6 @@
           </div>
 
           <form id="groupForm">
-            <label>
-              <span>Название</span>
-              <input id="groupNameInput" type="text" placeholder="Например: Дельфины" required />
-            </label>
-
             <div class="time-grid">
               <label>
                 <span>Начало</span>

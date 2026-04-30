@@ -20,13 +20,19 @@ const themeChoices = [
 ];
 
 const elements = {
+  poolList: document.querySelector("#poolList"),
+  newPoolButton: document.querySelector("#newPoolButton"),
+  deletePoolButton: document.querySelector("#deletePoolButton"),
+  poolForm: document.querySelector("#poolForm"),
+  poolFormTitle: document.querySelector("#poolFormTitle"),
+  poolNameInput: document.querySelector("#poolNameInput"),
   groupList: document.querySelector("#groupList"),
+  groupsPanelTitle: document.querySelector("#groupsPanelTitle"),
   themeOptions: document.querySelector("#themeOptions"),
   newGroupButton: document.querySelector("#newGroupButton"),
   deleteGroupButton: document.querySelector("#deleteGroupButton"),
   groupForm: document.querySelector("#groupForm"),
   groupFormTitle: document.querySelector("#groupFormTitle"),
-  groupNameInput: document.querySelector("#groupNameInput"),
   groupStartInput: document.querySelector("#groupStartInput"),
   groupEndInput: document.querySelector("#groupEndInput"),
   dayPills: document.querySelector("#dayPills"),
@@ -44,14 +50,16 @@ const elements = {
 };
 
 let state = loadState();
+let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let selectedDayValues = new Set([1, 3, 5]);
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
 
-if (!state.groups.length) {
+if (!state.pools.length) {
   state = createSeedState();
+  editingPoolId = state.selectedPoolId;
   editingGroupId = state.selectedGroupId;
   saveState();
 }
@@ -60,11 +68,82 @@ wireEvents();
 render();
 
 function wireEvents() {
+  elements.newPoolButton.addEventListener("click", () => {
+    editingPoolId = null;
+    renderPoolForm();
+    elements.poolNameInput.focus();
+  });
+
+  elements.deletePoolButton.addEventListener("click", () => {
+    if (!editingPoolId) return;
+
+    const pool = getPool(editingPoolId);
+    if (!pool) return;
+
+    const confirmed = window.confirm(`Удалить бассейн "${pool.name}" вместе со всеми группами и отметками?`);
+    if (!confirmed) return;
+
+    state.pools = state.pools.filter((item) => item.id !== editingPoolId);
+    state.groups = state.groups.filter((group) => group.poolId !== editingPoolId);
+    state.selectedPoolId = state.pools[0]?.id || null;
+    state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
+    editingPoolId = state.selectedPoolId;
+    editingGroupId = state.selectedGroupId;
+    saveState();
+    render();
+  });
+
+  elements.poolForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = elements.poolNameInput.value.trim();
+
+    if (!name) {
+      window.alert("Укажите название бассейна.");
+      return;
+    }
+
+    if (editingPoolId) {
+      const pool = getPool(editingPoolId);
+      if (!pool) return;
+      pool.name = name;
+    } else {
+      const pool = {
+        id: createId("pool"),
+        name,
+      };
+      state.pools.push(pool);
+      state.selectedPoolId = pool.id;
+      state.selectedGroupId = null;
+      editingPoolId = pool.id;
+      editingGroupId = null;
+    }
+
+    saveState();
+    render();
+  });
+
+  elements.poolList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pool-id]");
+    if (!button) return;
+
+    state.selectedPoolId = button.dataset.poolId;
+    state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
+    editingPoolId = state.selectedPoolId;
+    editingGroupId = state.selectedGroupId;
+    saveState();
+    render();
+  });
+
   elements.newGroupButton.addEventListener("click", () => {
+    if (!state.selectedPoolId) {
+      window.alert("Сначала создайте бассейн.");
+      return;
+    }
+
     editingGroupId = null;
     selectedDayValues = new Set([1, 3, 5]);
     renderGroupForm();
-    elements.groupNameInput.focus();
+    elements.groupStartInput.focus();
   });
 
   elements.deleteGroupButton.addEventListener("click", () => {
@@ -73,11 +152,11 @@ function wireEvents() {
     const group = getGroup(editingGroupId);
     if (!group) return;
 
-    const confirmed = window.confirm(`Удалить группу "${group.name}" вместе с учениками и отметками?`);
+    const confirmed = window.confirm(`Удалить группу "${group.start}" вместе с учениками и отметками?`);
     if (!confirmed) return;
 
     state.groups = state.groups.filter((item) => item.id !== editingGroupId);
-    state.selectedGroupId = state.groups[0]?.id || null;
+    state.selectedGroupId = getGroupsForSelectedPool()[0]?.id || null;
     editingGroupId = state.selectedGroupId;
     saveState();
     render();
@@ -85,29 +164,34 @@ function wireEvents() {
 
   elements.groupForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const name = elements.groupNameInput.value.trim();
     const start = elements.groupStartInput.value;
     const end = elements.groupEndInput.value;
     const days = dayOptions
       .map((day) => day.value)
       .filter((value) => selectedDayValues.has(value));
 
-    if (!name || !start || !days.length) {
-      window.alert("Укажите название, время начала и хотя бы один день тренировки.");
+    if (!state.selectedPoolId) {
+      window.alert("Сначала создайте бассейн.");
+      return;
+    }
+
+    if (!start || !days.length) {
+      window.alert("Укажите время начала и хотя бы один день тренировки.");
       return;
     }
 
     if (editingGroupId) {
       const group = getGroup(editingGroupId);
       if (!group) return;
-      group.name = name;
+      group.name = start;
       group.start = start;
       group.end = end;
       group.days = days;
     } else {
       const group = {
         id: createId("group"),
-        name,
+        poolId: state.selectedPoolId,
+        name: start,
         start,
         end,
         days,
@@ -203,7 +287,9 @@ function wireEvents() {
 
 function loadState() {
   const fallback = {
+    pools: [],
     groups: [],
+    selectedPoolId: null,
     selectedGroupId: null,
     month: toMonthValue(new Date()),
     theme: "white",
@@ -211,12 +297,53 @@ function loadState() {
 
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!saved || !Array.isArray(saved.groups)) return fallback;
+    if (!saved) return fallback;
+
+    const theme = themeChoices.some((choice) => choice.value === saved.theme) ? saved.theme : fallback.theme;
+
+    if (Array.isArray(saved.pools)) {
+      const pools = saved.pools;
+      const firstPoolId = pools[0]?.id || null;
+      const selectedPoolId = pools.some((pool) => pool.id === saved.selectedPoolId)
+        ? saved.selectedPoolId
+        : firstPoolId;
+      const groups = Array.isArray(saved.groups) ? saved.groups : [];
+      const selectedGroup = groups.find(
+        (group) => group.id === saved.selectedGroupId && group.poolId === selectedPoolId,
+      );
+      const firstGroup = groups.find((group) => group.poolId === selectedPoolId);
+
+      return {
+        pools,
+        groups,
+        selectedPoolId,
+        selectedGroupId: selectedGroup?.id || firstGroup?.id || null,
+        month: saved.month || fallback.month,
+        theme,
+      };
+    }
+
+    if (!Array.isArray(saved.groups)) return fallback;
+
+    const migratedPoolId = createId("pool");
+    const groups = saved.groups.map((group) => ({
+      ...group,
+      poolId: group.poolId || migratedPoolId,
+      name: group.start || group.name,
+    }));
+
     return {
-      groups: saved.groups,
-      selectedGroupId: saved.selectedGroupId || saved.groups[0]?.id || null,
+      pools: [
+        {
+          id: migratedPoolId,
+          name: "Мой бассейн",
+        },
+      ],
+      groups,
+      selectedPoolId: migratedPoolId,
+      selectedGroupId: saved.selectedGroupId || groups[0]?.id || null,
       month: saved.month || fallback.month,
-      theme: themeChoices.some((theme) => theme.value === saved.theme) ? saved.theme : fallback.theme,
+      theme,
     };
   } catch {
     return fallback;
@@ -224,6 +351,7 @@ function loadState() {
 }
 
 function createSeedState() {
+  const poolId = createId("pool");
   const groupId = createId("group");
   const students = ["Алина Мамбетова", "Даниил Смирнов", "Руслан Ибраев"].map((name) => ({
     id: createId("student"),
@@ -231,10 +359,17 @@ function createSeedState() {
   }));
 
   return {
+    pools: [
+      {
+        id: poolId,
+        name: "Максимум",
+      },
+    ],
     groups: [
       {
         id: groupId,
-        name: "Дельфины",
+        poolId,
+        name: "18:00",
         start: "18:00",
         end: "19:00",
         days: [1, 3, 5],
@@ -242,6 +377,7 @@ function createSeedState() {
         attendance: {},
       },
     ],
+    selectedPoolId: poolId,
     selectedGroupId: groupId,
     month: toMonthValue(new Date()),
     theme: state.theme || "white",
@@ -254,21 +390,64 @@ function saveState() {
 }
 
 function render() {
-  if (!state.selectedGroupId && state.groups.length) {
-    state.selectedGroupId = state.groups[0].id;
+  if (!state.selectedPoolId && state.pools.length) {
+    state.selectedPoolId = state.pools[0].id;
+  }
+
+  if (!getPool(state.selectedPoolId) && state.pools.length) {
+    state.selectedPoolId = state.pools[0].id;
+  }
+
+  const poolGroups = getGroupsForSelectedPool();
+  if (!poolGroups.some((group) => group.id === state.selectedGroupId)) {
+    state.selectedGroupId = poolGroups[0]?.id || null;
+  }
+
+  if (!editingPoolId && state.selectedPoolId) {
+    editingPoolId = state.selectedPoolId;
+  }
+
+  if (editingPoolId && !getPool(editingPoolId)) {
+    editingPoolId = state.selectedPoolId;
   }
 
   if (!editingGroupId && state.selectedGroupId) {
     editingGroupId = state.selectedGroupId;
   }
 
+  if (editingGroupId && !poolGroups.some((group) => group.id === editingGroupId)) {
+    editingGroupId = state.selectedGroupId;
+  }
+
+  renderPools();
   renderGroups();
   renderThemeOptions();
+  renderPoolForm();
   renderGroupForm();
   renderActiveGroup();
   renderJournal();
   renderStats();
   refreshIcons();
+}
+
+function renderPools() {
+  if (!state.pools.length) {
+    elements.poolList.innerHTML = `<p class="pool-meta">Создайте первый бассейн.</p>`;
+    return;
+  }
+
+  elements.poolList.innerHTML = state.pools
+    .map((pool) => {
+      const active = pool.id === state.selectedPoolId ? " active" : "";
+      const groupCount = state.groups.filter((group) => group.poolId === pool.id).length;
+      return `
+        <button class="pool-item${active}" type="button" data-pool-id="${pool.id}">
+          <span class="pool-name">${escapeHtml(pool.name)}</span>
+          <span class="pool-meta">${groupCount} ${pluralize(groupCount, ["группа", "группы", "групп"])}</span>
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function renderThemeOptions() {
@@ -285,19 +464,37 @@ function renderThemeOptions() {
     .join("");
 }
 
+function renderPoolForm() {
+  const pool = editingPoolId ? getPool(editingPoolId) : null;
+  elements.poolFormTitle.textContent = pool ? "Настройки бассейна" : "Новый бассейн";
+  elements.deletePoolButton.disabled = !pool;
+  elements.poolNameInput.value = pool?.name || "";
+}
+
 function renderGroups() {
-  if (!state.groups.length) {
-    elements.groupList.innerHTML = `<p class="group-meta">Создайте первую группу, чтобы начать журнал.</p>`;
+  const pool = getSelectedPool();
+  const groups = getGroupsForSelectedPool();
+
+  elements.groupsPanelTitle.textContent = pool ? `Группы: ${pool.name}` : "Группы";
+  elements.newGroupButton.disabled = !pool;
+
+  if (!pool) {
+    elements.groupList.innerHTML = `<p class="group-meta">Создайте бассейн, чтобы добавить группы.</p>`;
     return;
   }
 
-  elements.groupList.innerHTML = state.groups
+  if (!groups.length) {
+    elements.groupList.innerHTML = `<p class="group-meta">В этом бассейне пока нет групп.</p>`;
+    return;
+  }
+
+  elements.groupList.innerHTML = groups
     .map((group) => {
       const active = group.id === state.selectedGroupId ? " active" : "";
       return `
         <button class="group-item${active}" type="button" data-group-id="${group.id}">
-          <span class="group-name">${escapeHtml(group.name)}</span>
-          <span class="group-meta">${formatTimeRange(group)} · ${formatDays(group.days)}</span>
+          <span class="group-name">${escapeHtml(group.start)}</span>
+          <span class="group-meta">${group.end ? `до ${escapeHtml(group.end)} · ` : ""}${formatDays(group.days)}</span>
           <span class="group-meta">${group.students.length} ${pluralize(group.students.length, ["ученик", "ученика", "учеников"])}</span>
         </button>
       `;
@@ -307,21 +504,25 @@ function renderGroups() {
 
 function renderGroupForm() {
   const group = editingGroupId ? getGroup(editingGroupId) : null;
+  const hasPool = Boolean(getSelectedPool());
   elements.groupFormTitle.textContent = group ? "Настройки группы" : "Новая группа";
   elements.deleteGroupButton.disabled = !group;
-  elements.groupNameInput.value = group?.name || "";
   elements.groupStartInput.value = group?.start || "18:00";
   elements.groupEndInput.value = group?.end || "";
+  elements.groupStartInput.disabled = !hasPool;
+  elements.groupEndInput.disabled = !hasPool;
+  elements.groupForm.querySelector("button[type='submit']").disabled = !hasPool;
   selectedDayValues = new Set(group?.days || Array.from(selectedDayValues));
   renderDayPills();
 }
 
 function renderDayPills() {
+  const disabled = getSelectedPool() ? "" : " disabled";
   elements.dayPills.innerHTML = dayOptions
     .map((day) => {
       const active = selectedDayValues.has(day.value) ? " active" : "";
       return `
-        <button class="day-pill${active}" type="button" data-day-value="${day.value}" aria-pressed="${selectedDayValues.has(day.value)}">
+        <button class="day-pill${active}" type="button" data-day-value="${day.value}" aria-pressed="${selectedDayValues.has(day.value)}"${disabled}>
           ${day.short}
         </button>
       `;
@@ -330,13 +531,16 @@ function renderDayPills() {
 }
 
 function renderActiveGroup() {
+  const pool = getSelectedPool();
   const group = getSelectedGroup();
   const hasGroup = Boolean(group);
 
-  elements.activeGroupTitle.textContent = group?.name || "Нет группы";
+  elements.activeGroupTitle.textContent = group ? `${pool?.name || "Бассейн"} · ${group.start}` : pool?.name || "Нет бассейна";
   elements.activeGroupSchedule.textContent = group
     ? `${formatDays(group.days)} · ${formatTimeRange(group)}`
-    : "Создайте группу слева, укажите дни и время.";
+    : pool
+      ? "Создайте группу слева, укажите дни и время."
+      : "Создайте бассейн слева, затем добавьте группы.";
 
   elements.studentNameInput.disabled = !hasGroup;
   elements.studentForm.querySelector("button").disabled = !hasGroup;
@@ -518,6 +722,7 @@ function removeStudent(studentId) {
 }
 
 function exportCsv() {
+  const pool = getSelectedPool();
   const group = getSelectedGroup();
   if (!group) return;
 
@@ -539,7 +744,7 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${group.name}-${elements.monthInput.value}.csv`;
+  link.download = `${pool?.name || "attendance"}-${group.start}-${elements.monthInput.value}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -597,6 +802,18 @@ function getSelectedGroup() {
 
 function getGroup(id) {
   return state.groups.find((group) => group.id === id);
+}
+
+function getSelectedPool() {
+  return getPool(state.selectedPoolId);
+}
+
+function getPool(id) {
+  return state.pools.find((pool) => pool.id === id);
+}
+
+function getGroupsForSelectedPool() {
+  return state.groups.filter((group) => group.poolId === state.selectedPoolId);
 }
 
 function applyTheme(theme) {
