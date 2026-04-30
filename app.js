@@ -45,6 +45,13 @@ const elements = {
   exportButton: document.querySelector("#exportButton"),
   studentForm: document.querySelector("#studentForm"),
   studentNameInput: document.querySelector("#studentNameInput"),
+  studentBirthYearInput: document.querySelector("#studentBirthYearInput"),
+  studentModal: document.querySelector("#studentModal"),
+  editStudentForm: document.querySelector("#editStudentForm"),
+  editStudentNameInput: document.querySelector("#editStudentNameInput"),
+  editStudentBirthYearInput: document.querySelector("#editStudentBirthYearInput"),
+  closeStudentModalButton: document.querySelector("#closeStudentModalButton"),
+  cancelStudentEditButton: document.querySelector("#cancelStudentEditButton"),
   stats: document.querySelector("#stats"),
   journalTable: document.querySelector("#journalTable"),
   emptyState: document.querySelector("#emptyState"),
@@ -53,10 +60,13 @@ const elements = {
 let state = loadState();
 let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
+let editingStudentId = null;
 let selectedDayValues = new Set([1, 3, 5]);
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
+elements.studentBirthYearInput.max = String(new Date().getFullYear());
+elements.editStudentBirthYearInput.max = String(new Date().getFullYear());
 
 if (!state.pools.length) {
   state = createSeedState();
@@ -228,15 +238,22 @@ function wireEvents() {
     event.preventDefault();
     const group = getSelectedGroup();
     const name = elements.studentNameInput.value.trim();
+    const birthYear = normalizeBirthYear(elements.studentBirthYearInput.value);
 
     if (!group || !name) return;
+    if (birthYear === null) {
+      window.alert("Укажите корректный год рождения.");
+      return;
+    }
 
     group.students.push({
       id: createId("student"),
       name,
+      birthYear,
     });
 
     elements.studentNameInput.value = "";
+    elements.studentBirthYearInput.value = "";
     saveState();
     renderJournal();
     renderStats();
@@ -245,6 +262,7 @@ function wireEvents() {
 
   elements.journalTable.addEventListener("click", (event) => {
     const attendanceButton = event.target.closest("[data-student-id][data-date]");
+    const editButton = event.target.closest("[data-edit-student-id]");
     const removeButton = event.target.closest("[data-remove-student-id]");
 
     if (attendanceButton) {
@@ -252,8 +270,32 @@ function wireEvents() {
       return;
     }
 
+    if (editButton) {
+      openStudentEditor(editButton.dataset.editStudentId);
+      return;
+    }
+
     if (removeButton) {
       removeStudent(removeButton.dataset.removeStudentId);
+    }
+  });
+
+  elements.editStudentForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveStudentEdits();
+  });
+
+  elements.closeStudentModalButton.addEventListener("click", closeStudentEditor);
+  elements.cancelStudentEditButton.addEventListener("click", closeStudentEditor);
+  elements.studentModal.addEventListener("click", (event) => {
+    if (event.target === elements.studentModal) {
+      closeStudentEditor();
+    }
+  });
+
+  document.addEventListener?.("keydown", (event) => {
+    if (event.key === "Escape" && !elements.studentModal.hidden) {
+      closeStudentEditor();
     }
   });
 
@@ -287,6 +329,49 @@ function deleteEditingPool() {
   editingGroupId = state.selectedGroupId;
   saveState();
   render();
+}
+
+function openStudentEditor(studentId) {
+  const group = getSelectedGroup();
+  const student = group?.students.find((item) => item.id === studentId);
+  if (!student) return;
+
+  editingStudentId = studentId;
+  elements.editStudentNameInput.value = student.name;
+  elements.editStudentBirthYearInput.value = student.birthYear || "";
+  elements.studentModal.hidden = false;
+  elements.editStudentNameInput.focus();
+}
+
+function closeStudentEditor() {
+  editingStudentId = null;
+  elements.studentModal.hidden = true;
+  elements.editStudentForm.reset();
+}
+
+function saveStudentEdits() {
+  const group = getSelectedGroup();
+  const student = group?.students.find((item) => item.id === editingStudentId);
+  if (!student) return;
+
+  const name = elements.editStudentNameInput.value.trim();
+  const birthYear = normalizeBirthYear(elements.editStudentBirthYearInput.value);
+
+  if (!name) {
+    window.alert("Укажите имя ученика.");
+    return;
+  }
+
+  if (birthYear === null) {
+    window.alert("Укажите корректный год рождения.");
+    return;
+  }
+
+  student.name = name;
+  student.birthYear = birthYear;
+  saveState();
+  closeStudentEditor();
+  renderJournal();
 }
 
 function loadState() {
@@ -357,9 +442,14 @@ function loadState() {
 function createSeedState() {
   const poolId = createId("pool");
   const groupId = createId("group");
-  const students = ["Алина Мамбетова", "Даниил Смирнов", "Руслан Ибраев"].map((name) => ({
+  const students = [
+    ["Алина Мамбетова", "2014"],
+    ["Даниил Смирнов", "2013"],
+    ["Руслан Ибраев", "2015"],
+  ].map(([name, birthYear]) => ({
     id: createId("student"),
     name,
+    birthYear,
   }));
 
   return {
@@ -548,6 +638,7 @@ function renderActiveGroup() {
       : "Создайте бассейн слева, затем добавьте группы.";
 
   elements.studentNameInput.disabled = !hasGroup;
+  elements.studentBirthYearInput.disabled = !hasGroup;
   elements.studentForm.querySelector("button").disabled = !hasGroup;
   elements.exportButton.disabled = !hasGroup;
   elements.prevMonthButton.disabled = !hasGroup;
@@ -601,6 +692,7 @@ function renderJournal() {
   const rows = group.students
     .map((student) => {
       const summary = getStudentSummary(group, student.id, dates);
+      const birthYear = student.birthYear ? `${escapeHtml(student.birthYear)} г.р.` : "год не указан";
       const cells = dates
         .map((item) => {
           const value = group.attendance[item.iso]?.[student.id] || "";
@@ -620,10 +712,18 @@ function renderJournal() {
         <tr>
           <th class="student-cell" scope="row">
             <span class="student-row">
-              <span class="student-name" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
-              <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Удалить ученика" title="Удалить ученика">
-                <i data-lucide="x"></i>
-              </button>
+              <span class="student-info">
+                <span class="student-name" title="${escapeHtml(student.name)}">${escapeHtml(student.name)}</span>
+                <span class="student-birth-year">${birthYear}</span>
+              </span>
+              <span class="student-actions">
+                <button class="icon-button edit-student" type="button" data-edit-student-id="${student.id}" aria-label="Редактировать ученика" title="Редактировать ученика">
+                  <i data-lucide="pencil"></i>
+                </button>
+                <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Удалить ученика" title="Удалить ученика">
+                  <i data-lucide="x"></i>
+                </button>
+              </span>
             </span>
           </th>
           ${cells}
@@ -733,11 +833,12 @@ function exportCsv() {
 
   const dates = getTrainingDates(group, elements.monthInput.value);
   const rows = [
-    ["Ученик", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"],
+    ["Ученик", "Год рождения", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"],
     ...group.students.map((student) => {
       const summary = getStudentSummary(group, student.id, dates);
       return [
         student.name,
+        student.birthYear || "",
         ...dates.map((date) => group.attendance[date.iso]?.[student.id] || ""),
         `${summary.present}/${summary.total}`,
       ];
@@ -858,6 +959,20 @@ function toIsoDate(date) {
 
 function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeBirthYear(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const year = Number(text);
+  const currentYear = new Date().getFullYear();
+
+  if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+    return null;
+  }
+
+  return String(year);
 }
 
 function pluralize(count, forms) {

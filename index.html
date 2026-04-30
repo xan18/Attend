@@ -143,6 +143,10 @@
               <span>Новый ученик</span>
               <input id="studentNameInput" type="text" placeholder="Имя и фамилия" required />
             </label>
+            <label class="student-year-field">
+              <span>Год рождения</span>
+              <input id="studentBirthYearInput" type="number" min="1900" max="2100" placeholder="2014" inputmode="numeric" />
+            </label>
             <button class="primary-button" type="submit">
               <i data-lucide="user-plus"></i>
               Добавить
@@ -163,6 +167,36 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="modal-backdrop" id="studentModal" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="studentModalTitle">
+        <div class="modal-heading">
+          <h2 id="studentModalTitle">Редактировать ученика</h2>
+          <button class="icon-button" id="closeStudentModalButton" type="button" aria-label="Закрыть" title="Закрыть">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <form id="editStudentForm">
+          <label>
+            <span>Имя и фамилия</span>
+            <input id="editStudentNameInput" type="text" required />
+          </label>
+          <label>
+            <span>Год рождения</span>
+            <input id="editStudentBirthYearInput" type="number" min="1900" max="2100" inputmode="numeric" />
+          </label>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="cancelStudentEditButton" type="button">Отмена</button>
+            <button class="primary-button" type="submit">
+              <i data-lucide="save"></i>
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
   </body>
 </html>
