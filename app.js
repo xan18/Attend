@@ -12,8 +12,16 @@ const dayOptions = [
 
 const attendanceFlow = ["", "+", "-"];
 
+const themeChoices = [
+  { value: "white", label: "Белая", swatch: "#ffffff" },
+  { value: "amoled", label: "Черная", swatch: "#000000" },
+  { value: "navy", label: "Темносиняя", swatch: "#172033" },
+  { value: "gray", label: "Серая", swatch: "#dedede" },
+];
+
 const elements = {
   groupList: document.querySelector("#groupList"),
+  themeOptions: document.querySelector("#themeOptions"),
   newGroupButton: document.querySelector("#newGroupButton"),
   deleteGroupButton: document.querySelector("#deleteGroupButton"),
   groupForm: document.querySelector("#groupForm"),
@@ -39,6 +47,7 @@ let state = loadState();
 let editingGroupId = state.selectedGroupId || null;
 let selectedDayValues = new Set([1, 3, 5]);
 
+applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
 
 if (!state.groups.length) {
@@ -180,6 +189,16 @@ function wireEvents() {
   });
 
   elements.exportButton.addEventListener("click", exportCsv);
+
+  elements.themeOptions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-theme-value]");
+    if (!button) return;
+
+    state.theme = button.dataset.themeValue;
+    applyTheme(state.theme);
+    saveState();
+    renderThemeOptions();
+  });
 }
 
 function loadState() {
@@ -187,6 +206,7 @@ function loadState() {
     groups: [],
     selectedGroupId: null,
     month: toMonthValue(new Date()),
+    theme: "white",
   };
 
   try {
@@ -196,6 +216,7 @@ function loadState() {
       groups: saved.groups,
       selectedGroupId: saved.selectedGroupId || saved.groups[0]?.id || null,
       month: saved.month || fallback.month,
+      theme: themeChoices.some((theme) => theme.value === saved.theme) ? saved.theme : fallback.theme,
     };
   } catch {
     return fallback;
@@ -223,6 +244,7 @@ function createSeedState() {
     ],
     selectedGroupId: groupId,
     month: toMonthValue(new Date()),
+    theme: state.theme || "white",
   };
 }
 
@@ -241,11 +263,26 @@ function render() {
   }
 
   renderGroups();
+  renderThemeOptions();
   renderGroupForm();
   renderActiveGroup();
   renderJournal();
   renderStats();
   refreshIcons();
+}
+
+function renderThemeOptions() {
+  elements.themeOptions.innerHTML = themeChoices
+    .map((theme) => {
+      const active = theme.value === state.theme ? " active" : "";
+      return `
+        <button class="theme-option${active}" type="button" data-theme-value="${theme.value}" aria-pressed="${theme.value === state.theme}">
+          <span class="theme-swatch" style="--swatch: ${theme.swatch}"></span>
+          ${theme.label}
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function renderGroups() {
@@ -560,6 +597,12 @@ function getSelectedGroup() {
 
 function getGroup(id) {
   return state.groups.find((group) => group.id === id);
+}
+
+function applyTheme(theme) {
+  const normalized = themeChoices.some((choice) => choice.value === theme) ? theme : "white";
+  state.theme = normalized;
+  document.documentElement.dataset.theme = normalized;
 }
 
 function formatDays(days) {
