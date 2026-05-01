@@ -1097,19 +1097,25 @@ function makeEntityId() {
 }
 
 function normalizeIdsForCloud() {
+  let changed = false;
   const poolIdMap = new Map();
   state.pools = state.pools.map((pool) => {
     if (isUuidLike(pool.id)) return pool;
     const nextId = makeEntityId();
     poolIdMap.set(pool.id, nextId);
+    changed = true;
     return { ...pool, id: nextId };
   });
 
   const groupIdMap = new Map();
   state.groups = state.groups.map((group) => {
     const nextGroupId = isUuidLike(group.id) ? group.id : makeEntityId();
-    if (nextGroupId !== group.id) groupIdMap.set(group.id, nextGroupId);
+    if (nextGroupId !== group.id) {
+      groupIdMap.set(group.id, nextGroupId);
+      changed = true;
+    }
     const nextPoolId = poolIdMap.get(group.poolId) || group.poolId;
+    if (nextPoolId !== group.poolId) changed = true;
     return { ...group, id: nextGroupId, poolId: nextPoolId };
   });
 
@@ -1119,6 +1125,7 @@ function normalizeIdsForCloud() {
       if (isUuidLike(student.id)) return student;
       const nextId = makeEntityId();
       studentIdMap.set(student.id, nextId);
+      changed = true;
       return { ...student, id: nextId };
     });
 
@@ -1135,6 +1142,7 @@ function normalizeIdsForCloud() {
 
   state.selectedPoolId = poolIdMap.get(state.selectedPoolId) || state.selectedPoolId;
   state.selectedGroupId = groupIdMap.get(state.selectedGroupId) || state.selectedGroupId;
+  return changed;
 }
 
 async function syncStateToSupabase() {
@@ -1143,7 +1151,10 @@ async function syncStateToSupabase() {
   syncInProgress = true;
 
   try {
-    normalizeIdsForCloud();
+    const idsChanged = normalizeIdsForCloud();
+    if (idsChanged) {
+      render();
+    }
 
     const nowIso = new Date().toISOString();
     const userId = currentUser.id;
