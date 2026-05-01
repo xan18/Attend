@@ -114,7 +114,7 @@ let currentUser = null;
 let isHydratingFromCloud = false;
 let syncTimer = null;
 let syncInProgress = false;
-let attendanceDateColumn = null;
+let attendanceDateColumn = "date";
 let syncStatus = "idle";
 
 applyTheme(state.theme);
@@ -610,7 +610,7 @@ async function applySession(session) {
   const nextUserId = currentUser?.id || null;
 
   if (previousUserId !== nextUserId) {
-    attendanceDateColumn = null;
+    attendanceDateColumn = "date";
   }
 
   if (!currentUser) {
@@ -708,10 +708,6 @@ async function loadStateFromSupabase() {
     (attendance || []).forEach((row) => {
       const groupId = String(row.group_id);
       const date = row.date || row.session_date;
-      if (!attendanceDateColumn) {
-        if (row.date !== undefined) attendanceDateColumn = "date";
-        if (row.session_date !== undefined) attendanceDateColumn = "session_date";
-      }
       const studentId = String(row.student_id);
       const mark = row.mark || "";
       if (!date || !mark) return;
@@ -857,7 +853,7 @@ async function signOutUser() {
 
 function forceLocalSignOut() {
   currentUser = null;
-  attendanceDateColumn = null;
+  attendanceDateColumn = "date";
 
   Object.keys(localStorage).forEach((key) => {
     if (key.includes("supabase") || key.startsWith("sb-")) {
@@ -1301,37 +1297,11 @@ async function syncStateToSupabase() {
           [dateColumn]: entry_date,
         }));
 
-      let dateColumn = attendanceDateColumn || "date";
-      let desiredRows = toDbRows(dateColumn);
-      let { error } = await supabaseClient
+      const dateColumn = "date";
+      const desiredRows = toDbRows(dateColumn);
+      const { error } = await supabaseClient
         .from("attendance")
         .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` });
-      const errorText = String(error?.message || "").toLowerCase();
-      const missingSessionDate =
-        errorText.includes("session_date") &&
-        (errorText.includes("does not exist") || errorText.includes("could not find"));
-      const missingDateColumn =
-        (errorText.includes("attendance.date") || errorText.includes("'date' column") || errorText.includes("column date")) &&
-        (errorText.includes("does not exist") || errorText.includes("could not find"));
-
-      if (error && missingSessionDate) {
-        dateColumn = "date";
-        attendanceDateColumn = "date";
-        desiredRows = toDbRows(dateColumn);
-        ({ error } = await supabaseClient
-          .from("attendance")
-          .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` }));
-      } else if (error && missingDateColumn) {
-        dateColumn = "session_date";
-        attendanceDateColumn = "session_date";
-        desiredRows = toDbRows(dateColumn);
-        ({ error } = await supabaseClient
-          .from("attendance")
-          .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` }));
-      } else {
-        attendanceDateColumn = dateColumn;
-      }
-
       if (error) throw error;
       await pruneRemovedAttendance(dateColumn, desiredRows);
     }
@@ -1339,17 +1309,7 @@ async function syncStateToSupabase() {
     localStorage.setItem(getStorageKey(), JSON.stringify(state));
     setSyncStatus("ok");
   } catch (error) {
-    const errorText = String(error?.message || "").toLowerCase();
-    const isDateColumnCacheError =
-      errorText.includes("attendance") &&
-      (errorText.includes("session_date") || errorText.includes("'date' column")) &&
-      errorText.includes("schema cache");
-
-    if (isDateColumnCacheError) {
-      console.warn("Supabase schema cache date-column mismatch:", error?.message);
-    } else {
-      window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
-    }
+    window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
     setSyncStatus("error");
   } finally {
     syncInProgress = false;
