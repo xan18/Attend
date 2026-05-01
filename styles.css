@@ -1129,9 +1129,9 @@ fieldset {
 
 .student-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
 }
 
 .student-info {
@@ -1146,7 +1146,10 @@ fieldset {
   font-weight: 500;
   line-height: 1.22;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .student-birth-year {
@@ -1158,6 +1161,8 @@ fieldset {
 .student-actions {
   display: flex;
   gap: 6px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .edit-student,
