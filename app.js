@@ -133,6 +133,15 @@ render();
 initAuth();
 
 function wireEvents() {
+  window.addEventListener("beforeunload", () => {
+    if (!supabaseClient || !currentUser?.id || syncInProgress) return;
+    if (syncTimer) {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      syncStateToSupabase();
+    }
+  });
+
   elements.backHomeButton.addEventListener("click", () => {
     showHome();
   });
@@ -600,7 +609,13 @@ async function applySession(session) {
   closeAuthModal();
   const localState = loadState();
   const cloudState = await loadStateFromSupabase();
-  state = cloudState || localState;
+
+  if (hasMeaningfulData(localState)) {
+    state = localState;
+  } else {
+    state = cloudState || localState;
+  }
+
   editingPoolId = state.selectedPoolId || null;
   editingGroupId = state.selectedGroupId || null;
 
@@ -616,6 +631,10 @@ async function applySession(session) {
   updateAuthBar();
   render();
   isHydratingFromCloud = false;
+
+  if (hasMeaningfulData(state)) {
+    scheduleSupabaseSync();
+  }
 }
 
 function getStorageKey() {
