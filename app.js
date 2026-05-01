@@ -1299,11 +1299,7 @@ async function syncStateToSupabase() {
 
       const dateColumn = "training_date";
       const desiredRows = toDbRows(dateColumn);
-      const { error } = await supabaseClient
-        .from("attendance")
-        .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` });
-      if (error) throw error;
-      await pruneRemovedAttendance(dateColumn, desiredRows);
+      await replaceAttendanceRows(desiredRows);
     }
 
     localStorage.setItem(getStorageKey(), JSON.stringify(state));
@@ -1339,30 +1335,15 @@ async function syncEntityTable(tableName, desiredRows) {
   }
 }
 
-async function pruneRemovedAttendance(dateColumn, desiredRows) {
+async function replaceAttendanceRows(desiredRows) {
   const userId = currentUser.id;
-  const { data: existingRows, error: existingError } = await supabaseClient
-    .from("attendance")
-    .select(`group_id,student_id,${dateColumn}`)
-    .eq("user_id", userId);
-  if (existingError) throw existingError;
+  const { error: deleteError } = await supabaseClient.from("attendance").delete().eq("user_id", userId);
+  if (deleteError) throw deleteError;
 
-  const desiredKeySet = new Set(
-    desiredRows.map((row) => `${row.group_id}|${row.student_id}|${row[dateColumn]}`),
-  );
+  if (!desiredRows.length) return;
 
-  for (const row of existingRows || []) {
-    const key = `${row.group_id}|${row.student_id}|${row[dateColumn]}`;
-    if (desiredKeySet.has(key)) continue;
-    const { error } = await supabaseClient
-      .from("attendance")
-      .delete()
-      .eq("user_id", userId)
-      .eq("group_id", row.group_id)
-      .eq("student_id", row.student_id)
-      .eq(dateColumn, row[dateColumn]);
-    if (error) throw error;
-  }
+  const { error: insertError } = await supabaseClient.from("attendance").insert(desiredRows);
+  if (insertError) throw insertError;
 }
 
 function exportBackupJson() {
