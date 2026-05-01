@@ -1264,12 +1264,18 @@ async function syncStateToSupabase() {
       let dateColumn = attendanceDateColumn || "date";
       let { error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn));
       const errorText = String(error?.message || "").toLowerCase();
+      const missingSessionDate =
+        errorText.includes("session_date") &&
+        (errorText.includes("does not exist") || errorText.includes("could not find"));
+      const missingDateColumn =
+        (errorText.includes("attendance.date") || errorText.includes("'date' column") || errorText.includes("column date")) &&
+        (errorText.includes("does not exist") || errorText.includes("could not find"));
 
-      if (error && errorText.includes("session_date")) {
+      if (error && missingSessionDate) {
         dateColumn = "date";
         attendanceDateColumn = "date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
-      } else if (error && errorText.includes("date")) {
+      } else if (error && missingDateColumn) {
         dateColumn = "session_date";
         attendanceDateColumn = "session_date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
