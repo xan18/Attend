@@ -1,4 +1,5 @@
 const STORAGE_KEY_BASE = "swim-attendance-journal-v1";
+const LEGACY_STORAGE_KEY = "swim-attendance-journal-v1";
 const SUPABASE_CONFIG = window.__SUPABASE_CONFIG || {};
 const supabaseClient =
   window.supabase && SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey
@@ -109,6 +110,9 @@ let selectedQuickGroupId = null;
 let homePopover = null;
 let authMode = "signIn";
 let currentUser = null;
+let isHydratingFromCloud = false;
+let syncTimer = null;
+let syncInProgress = false;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -591,12 +595,17 @@ async function applySession(session) {
     return;
   }
 
+  isHydratingFromCloud = true;
   closeAuthModal();
-  state = loadState();
+  const localState = loadState();
+  const cloudState = await loadStateFromSupabase();
+  state = cloudState || localState;
   editingPoolId = state.selectedPoolId || null;
   editingGroupId = state.selectedGroupId || null;
 
-  if (!state.pools.length) {
+  if (!cloudState && hasMeaningfulData(localState)) {
+    saveState();
+  } else if (!state.pools.length) {
     state = createSeedState();
     editingPoolId = state.selectedPoolId;
     editingGroupId = state.selectedGroupId;
@@ -605,11 +614,110 @@ async function applySession(session) {
 
   updateAuthBar();
   render();
+  isHydratingFromCloud = false;
 }
 
 function getStorageKey() {
   if (!currentUser?.id) return `${STORAGE_KEY_BASE}:guest`;
   return `${STORAGE_KEY_BASE}:${currentUser.id}`;
+}
+
+function getLegacyStorageKey() {
+  return LEGACY_STORAGE_KEY;
+}
+
+function hasMeaningfulData(value) {
+  return Boolean(value?.pools?.length || value?.groups?.length);
+}
+
+async function loadStateFromSupabase() {
+  if (!supabaseClient || !currentUser?.id) return null;
+
+  try {
+    const [{ data: pools, error: poolsError }, { data: groups, error: groupsError }, { data: students, error: studentsError }, { data: attendance, error: attendanceError }] =
+      await Promise.all([
+        supabaseClient.from("pools").select("*").order("created_at", { ascending: true }),
+        supabaseClient.from("groups").select("*").order("sort_order", { ascending: true }),
+        supabaseClient.from("students").select("*").order("created_at", { ascending: true }),
+        supabaseClient.from("attendance").select("*").order("session_date", { ascending: true }),
+      ]);
+
+    const loadError = poolsError || groupsError || studentsError || attendanceError;
+    if (loadError) {
+      window.alert(`Ошибка загрузки данных из Supabase: ${loadError.message}`);
+      return null;
+    }
+
+    if (!pools?.length && !groups?.length && !students?.length && !attendance?.length) {
+      return null;
+    }
+
+    const normalizedPools = (pools || []).map((pool) => ({
+      id: String(pool.id),
+      name: pool.name || "Бассейн",
+    }));
+
+    const studentsByGroup = new Map();
+    (students || []).forEach((student) => {
+      const groupId = String(student.group_id);
+      if (!studentsByGroup.has(groupId)) studentsByGroup.set(groupId, []);
+      studentsByGroup.get(groupId).push({
+        id: String(student.id),
+        name: student.name || "Ученик",
+        birthYear: student.birth_year ? String(student.birth_year) : "",
+        activeFromMonth: student.active_from_month || "",
+        removedFromMonth: student.removed_from_month || "",
+      });
+    });
+
+    const attendanceByGroup = new Map();
+    (attendance || []).forEach((row) => {
+      const groupId = String(row.group_id);
+      const date = row.session_date || row.date;
+      const studentId = String(row.student_id);
+      const mark = row.mark || "";
+      if (!date || !mark) return;
+
+      if (!attendanceByGroup.has(groupId)) attendanceByGroup.set(groupId, {});
+      const groupAttendance = attendanceByGroup.get(groupId);
+      if (!groupAttendance[date]) groupAttendance[date] = {};
+      groupAttendance[date][studentId] = mark;
+    });
+
+    const normalizedGroups = (groups || []).map((group) => ({
+      id: String(group.id),
+      poolId: String(group.pool_id),
+      name: group.name || group.start_time || "Группа",
+      start: group.start_time || group.name || "",
+      end: group.end_time || "",
+      days: Array.isArray(group.days) ? group.days.map(Number) : [],
+      students: studentsByGroup.get(String(group.id)) || [],
+      attendance: attendanceByGroup.get(String(group.id)) || {},
+    }));
+
+    const fallbackMonth = toMonthValue(new Date());
+    const fallbackDate = toIsoDate(new Date());
+    const selectedPoolId = normalizedPools.some((pool) => pool.id === state.selectedPoolId)
+      ? state.selectedPoolId
+      : normalizedPools[0]?.id || null;
+    const selectedGroupId =
+      normalizedGroups.find((group) => group.id === state.selectedGroupId && group.poolId === selectedPoolId)?.id ||
+      normalizedGroups.find((group) => group.poolId === selectedPoolId)?.id ||
+      null;
+
+    return {
+      pools: normalizedPools,
+      groups: normalizedGroups,
+      selectedPoolId,
+      selectedGroupId,
+      month: state.month || fallbackMonth,
+      homeDate: state.homeDate || fallbackDate,
+      theme: state.theme || "white",
+    };
+  } catch (error) {
+    window.alert(`Ошибка загрузки данных из Supabase: ${error.message}`);
+    return null;
+  }
 }
 
 function openAuthModal() {
@@ -856,7 +964,9 @@ function loadState() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem(getStorageKey()));
+    const savedByUser = localStorage.getItem(getStorageKey());
+    const savedRaw = savedByUser || localStorage.getItem(getLegacyStorageKey());
+    const saved = JSON.parse(savedRaw);
     if (!saved) return fallback;
 
     const theme = themeChoices.some((choice) => choice.value === saved.theme) ? saved.theme : fallback.theme;
@@ -956,6 +1066,171 @@ function saveState() {
   state.month = elements.monthInput.value || state.month;
   state.homeDate = normalizeIsoDate(elements.homeDateInput.value) || state.homeDate || toIsoDate(new Date());
   localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  scheduleSupabaseSync();
+}
+
+function scheduleSupabaseSync() {
+  if (isHydratingFromCloud || !supabaseClient || !currentUser?.id) return;
+
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+  }
+
+  syncTimer = setTimeout(async () => {
+    syncTimer = null;
+    await syncStateToSupabase();
+  }, 350);
+}
+
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+}
+
+function makeEntityId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return createId("id");
+}
+
+function normalizeIdsForCloud() {
+  const poolIdMap = new Map();
+  state.pools = state.pools.map((pool) => {
+    if (isUuidLike(pool.id)) return pool;
+    const nextId = makeEntityId();
+    poolIdMap.set(pool.id, nextId);
+    return { ...pool, id: nextId };
+  });
+
+  const groupIdMap = new Map();
+  state.groups = state.groups.map((group) => {
+    const nextGroupId = isUuidLike(group.id) ? group.id : makeEntityId();
+    if (nextGroupId !== group.id) groupIdMap.set(group.id, nextGroupId);
+    const nextPoolId = poolIdMap.get(group.poolId) || group.poolId;
+    return { ...group, id: nextGroupId, poolId: nextPoolId };
+  });
+
+  state.groups = state.groups.map((group) => {
+    const studentIdMap = new Map();
+    const nextStudents = group.students.map((student) => {
+      if (isUuidLike(student.id)) return student;
+      const nextId = makeEntityId();
+      studentIdMap.set(student.id, nextId);
+      return { ...student, id: nextId };
+    });
+
+    const nextAttendance = {};
+    Object.entries(group.attendance || {}).forEach(([date, marks]) => {
+      nextAttendance[date] = {};
+      Object.entries(marks || {}).forEach(([studentId, mark]) => {
+        nextAttendance[date][studentIdMap.get(studentId) || studentId] = mark;
+      });
+    });
+
+    return { ...group, students: nextStudents, attendance: nextAttendance };
+  });
+
+  state.selectedPoolId = poolIdMap.get(state.selectedPoolId) || state.selectedPoolId;
+  state.selectedGroupId = groupIdMap.get(state.selectedGroupId) || state.selectedGroupId;
+}
+
+async function syncStateToSupabase() {
+  if (syncInProgress || !supabaseClient || !currentUser?.id) return;
+
+  syncInProgress = true;
+
+  try {
+    normalizeIdsForCloud();
+
+    const nowIso = new Date().toISOString();
+    const userId = currentUser.id;
+
+    const poolRows = state.pools.map((pool) => ({
+      id: pool.id,
+      user_id: userId,
+      name: pool.name,
+      updated_at: nowIso,
+    }));
+
+    const groupsWithOrder = state.groups.map((group) => {
+      const poolGroups = state.groups.filter((item) => item.poolId === group.poolId);
+      const sortOrder = poolGroups.findIndex((item) => item.id === group.id);
+      return { ...group, sortOrder };
+    });
+
+    const groupRows = groupsWithOrder.map((group) => ({
+      id: group.id,
+      user_id: userId,
+      pool_id: group.poolId,
+      name: group.start || group.name || "",
+      start_time: group.start || "",
+      end_time: group.end || "",
+      days: Array.isArray(group.days) ? group.days.map(Number) : [],
+      sort_order: group.sortOrder,
+      updated_at: nowIso,
+    }));
+
+    const studentRows = [];
+    const attendanceRows = [];
+
+    state.groups.forEach((group) => {
+      group.students.forEach((student) => {
+        studentRows.push({
+          id: student.id,
+          user_id: userId,
+          group_id: group.id,
+          name: student.name,
+          birth_year: student.birthYear ? Number(student.birthYear) : null,
+          active_from_month: student.activeFromMonth || null,
+          removed_from_month: student.removedFromMonth || null,
+          updated_at: nowIso,
+        });
+      });
+
+      Object.entries(group.attendance || {}).forEach(([date, marks]) => {
+        Object.entries(marks || {}).forEach(([studentId, mark]) => {
+          if (!mark) return;
+          attendanceRows.push({
+            user_id: userId,
+            group_id: group.id,
+            student_id: studentId,
+            session_date: date,
+            mark,
+            updated_at: nowIso,
+          });
+        });
+      });
+    });
+
+    await supabaseClient.from("attendance").delete().eq("user_id", userId);
+    await supabaseClient.from("students").delete().eq("user_id", userId);
+    await supabaseClient.from("groups").delete().eq("user_id", userId);
+    await supabaseClient.from("pools").delete().eq("user_id", userId);
+
+    if (poolRows.length) {
+      const { error } = await supabaseClient.from("pools").insert(poolRows);
+      if (error) throw error;
+    }
+
+    if (groupRows.length) {
+      const { error } = await supabaseClient.from("groups").insert(groupRows);
+      if (error) throw error;
+    }
+
+    if (studentRows.length) {
+      const { error } = await supabaseClient.from("students").insert(studentRows);
+      if (error) throw error;
+    }
+
+    if (attendanceRows.length) {
+      const { error } = await supabaseClient.from("attendance").insert(attendanceRows);
+      if (error) throw error;
+    }
+
+    localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  } catch (error) {
+    window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
+  } finally {
+    syncInProgress = false;
+  }
 }
 
 function render() {
