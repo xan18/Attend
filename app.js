@@ -115,7 +115,6 @@ let isHydratingFromCloud = false;
 let syncTimer = null;
 let syncInProgress = false;
 let attendanceDateColumn = null;
-let attendanceDateColumnChecked = false;
 let syncStatus = "idle";
 
 applyTheme(state.theme);
@@ -612,7 +611,6 @@ async function applySession(session) {
 
   if (previousUserId !== nextUserId) {
     attendanceDateColumn = null;
-    attendanceDateColumnChecked = false;
   }
 
   if (!currentUser) {
@@ -760,25 +758,6 @@ async function loadStateFromSupabase() {
   }
 }
 
-async function resolveAttendanceDateColumn() {
-  if (!supabaseClient || !currentUser?.id || attendanceDateColumnChecked) return;
-  attendanceDateColumnChecked = true;
-
-  const dateProbe = await supabaseClient.from("attendance").select("date").limit(1);
-  if (!dateProbe.error) {
-    attendanceDateColumn = "date";
-    return;
-  }
-
-  const sessionDateProbe = await supabaseClient.from("attendance").select("session_date").limit(1);
-  if (!sessionDateProbe.error) {
-    attendanceDateColumn = "session_date";
-    return;
-  }
-
-  attendanceDateColumn = "date";
-}
-
 function openAuthModal() {
   renderAuthUi();
   elements.authModal.hidden = false;
@@ -879,7 +858,6 @@ async function signOutUser() {
 function forceLocalSignOut() {
   currentUser = null;
   attendanceDateColumn = null;
-  attendanceDateColumnChecked = false;
 
   Object.keys(localStorage).forEach((key) => {
     if (key.includes("supabase") || key.startsWith("sb-")) {
@@ -1248,7 +1226,6 @@ async function syncStateToSupabase() {
   syncInProgress = true;
 
   try {
-    await resolveAttendanceDateColumn();
     const idsChanged = normalizeIdsForCloud();
     if (idsChanged) {
       render();
