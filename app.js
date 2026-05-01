@@ -113,6 +113,7 @@ let currentUser = null;
 let isHydratingFromCloud = false;
 let syncTimer = null;
 let syncInProgress = false;
+let attendanceDateColumn = null;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -639,7 +640,7 @@ async function loadStateFromSupabase() {
         supabaseClient.from("pools").select("*").order("created_at", { ascending: true }),
         supabaseClient.from("groups").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("students").select("*").order("created_at", { ascending: true }),
-        supabaseClient.from("attendance").select("*").order("date", { ascending: true }),
+        supabaseClient.from("attendance").select("*").order("created_at", { ascending: true }),
       ]);
 
     const loadError = poolsError || groupsError || studentsError || attendanceError;
@@ -674,6 +675,10 @@ async function loadStateFromSupabase() {
     (attendance || []).forEach((row) => {
       const groupId = String(row.group_id);
       const date = row.date || row.session_date;
+      if (!attendanceDateColumn) {
+        if (row.date !== undefined) attendanceDateColumn = "date";
+        if (row.session_date !== undefined) attendanceDateColumn = "session_date";
+      }
       const studentId = String(row.student_id);
       const mark = row.mark || "";
       if (!date || !mark) return;
@@ -1191,7 +1196,7 @@ async function syncStateToSupabase() {
             user_id: userId,
             group_id: group.id,
             student_id: studentId,
-            date,
+            entry_date: date,
             mark,
             updated_at: nowIso,
           });
@@ -1220,7 +1225,27 @@ async function syncStateToSupabase() {
     }
 
     if (attendanceRows.length) {
-      const { error } = await supabaseClient.from("attendance").insert(attendanceRows);
+      const toDbRows = (dateColumn) =>
+        attendanceRows.map(({ entry_date, ...row }) => ({
+          ...row,
+          [dateColumn]: entry_date,
+        }));
+
+      let dateColumn = attendanceDateColumn || "session_date";
+      let { error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn));
+
+      if (error && /column .*session_date.*does not exist|attendance\.session_date/i.test(error.message || "")) {
+        dateColumn = "date";
+        attendanceDateColumn = "date";
+        ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
+      } else if (error && /column .*date.*does not exist|attendance\.date/i.test(error.message || "")) {
+        dateColumn = "session_date";
+        attendanceDateColumn = "session_date";
+        ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
+      } else {
+        attendanceDateColumn = dateColumn;
+      }
+
       if (error) throw error;
     }
 
