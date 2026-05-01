@@ -849,10 +849,11 @@ function renderThemeOptions() {
   elements.themeOptions.innerHTML = themeChoices
     .map((theme) => {
       const active = theme.value === state.theme ? " active" : "";
+      const displayLabel = theme.value === "navy" ? "Синяя" : theme.label;
       return `
         <button class="theme-option${active}" type="button" data-theme-value="${theme.value}" aria-pressed="${theme.value === state.theme}">
           <span class="theme-swatch" style="--swatch: ${theme.swatch}"></span>
-          ${theme.label}
+          ${displayLabel}
         </button>
       `;
     })
