@@ -1160,7 +1160,6 @@ async function syncStateToSupabase() {
       id: group.id,
       user_id: userId,
       pool_id: group.poolId,
-      name: group.start || group.name || "",
       start_time: group.start || "",
       end_time: group.end || "",
       days: Array.isArray(group.days) ? group.days.map(Number) : [],
