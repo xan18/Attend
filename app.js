@@ -534,7 +534,7 @@ function openStudentTransfer(studentId) {
 
   const targets = getTransferTargetGroups(sourceGroup.id);
   if (!targets.length) {
-    window.alert("Нет других групп для переноса. Сначала создайте ещё одну группу.");
+    window.alert("В этом бассейне нет другой группы для переноса.");
     return;
   }
 
@@ -542,8 +542,8 @@ function openStudentTransfer(studentId) {
   elements.transferStudentNameInput.value = `${student.name} (${sourcePool?.name || "Бассейн"} · ${sourceGroup.start})`;
   elements.transferStudentTargetSelect.innerHTML = targets
     .map(
-      ({ group, pool }) =>
-        `<option value="${group.id}">${escapeHtml(pool.name)} · ${escapeHtml(group.start)} · ${escapeHtml(formatDays(group.days))}</option>`,
+      ({ group }) =>
+        `<option value="${group.id}">${escapeHtml(group.start)} · ${escapeHtml(formatDays(group.days))}</option>`,
     )
     .join("");
   elements.transferStudentModal.hidden = false;
@@ -1329,13 +1329,14 @@ function deleteStudentEverywhere(studentId) {
 }
 
 function getTransferTargetGroups(sourceGroupId) {
+  const sourceGroup = getGroup(sourceGroupId);
+  if (!sourceGroup) return [];
+
   return state.groups
-    .filter((group) => group.id !== sourceGroupId)
+    .filter((group) => group.poolId === sourceGroup.poolId && group.id !== sourceGroupId)
     .map((group) => ({ group, pool: getPool(group.poolId) }))
     .filter((item) => item.pool)
     .sort((left, right) => {
-      const poolNameCompare = left.pool.name.localeCompare(right.pool.name, "ru");
-      if (poolNameCompare !== 0) return poolNameCompare;
       return left.group.start.localeCompare(right.group.start, "ru");
     });
 }
