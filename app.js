@@ -23,6 +23,9 @@ const elements = {
   homeView: document.querySelector("#homeView"),
   poolView: document.querySelector("#poolView"),
   homeSummary: document.querySelector("#homeSummary"),
+  homeDateInput: document.querySelector("#homeDateInput"),
+  homeGroupTabs: document.querySelector("#homeGroupTabs"),
+  homeGroupPanel: document.querySelector("#homeGroupPanel"),
   backHomeButton: document.querySelector("#backHomeButton"),
   currentPoolTitle: document.querySelector("#currentPoolTitle"),
   currentPoolSubtitle: document.querySelector("#currentPoolSubtitle"),
@@ -70,9 +73,11 @@ let editingStudentId = null;
 let draggedGroupId = null;
 let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
+let selectedQuickGroupId = null;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
+elements.homeDateInput.value = state.homeDate || toIsoDate(new Date());
 elements.studentBirthYearInput.max = String(new Date().getFullYear());
 elements.editStudentBirthYearInput.max = String(new Date().getFullYear());
 
@@ -160,6 +165,48 @@ function wireEvents() {
     editingGroupId = state.selectedGroupId;
     saveState();
   }
+
+  elements.homeDateInput.addEventListener("change", () => {
+    state.homeDate = normalizeIsoDate(elements.homeDateInput.value) || toIsoDate(new Date());
+    elements.homeDateInput.value = state.homeDate;
+    selectedQuickGroupId = null;
+    saveState();
+    renderHomeQuickAttendance();
+  });
+
+  elements.homeGroupTabs.addEventListener("click", (event) => {
+    const tabButton = event.target.closest("[data-quick-group-id]");
+    if (!tabButton) return;
+
+    selectedQuickGroupId = tabButton.dataset.quickGroupId;
+    renderHomeQuickAttendance();
+  });
+
+  elements.homeGroupPanel.addEventListener("click", (event) => {
+    const markButton = event.target.closest("[data-quick-mark-group-id][data-quick-mark-student-id][data-quick-mark-value]");
+    if (!markButton) return;
+
+    const nextValue = markButton.dataset.quickMarkValue === "blank" ? "" : markButton.dataset.quickMarkValue;
+    const date = getHomeDateValue();
+    const changed = setAttendanceValue(
+      markButton.dataset.quickMarkGroupId,
+      markButton.dataset.quickMarkStudentId,
+      date,
+      nextValue,
+    );
+
+    if (!changed) return;
+
+    renderHomeQuickAttendance();
+    if (
+      currentView === "pool" &&
+      state.selectedGroupId === markButton.dataset.quickMarkGroupId &&
+      elements.monthInput.value === date.slice(0, 7)
+    ) {
+      renderJournal();
+      renderStats();
+    }
+  });
 
   elements.newGroupButton.addEventListener("click", () => {
     if (!state.selectedPoolId) {
@@ -478,6 +525,7 @@ function loadState() {
     selectedPoolId: null,
     selectedGroupId: null,
     month: toMonthValue(new Date()),
+    homeDate: toIsoDate(new Date()),
     theme: "white",
   };
 
@@ -505,6 +553,7 @@ function loadState() {
         selectedPoolId,
         selectedGroupId: selectedGroup?.id || firstGroup?.id || null,
         month: saved.month || fallback.month,
+        homeDate: normalizeIsoDate(saved.homeDate) || fallback.homeDate,
         theme,
       };
     }
@@ -529,6 +578,7 @@ function loadState() {
       selectedPoolId: migratedPoolId,
       selectedGroupId: saved.selectedGroupId || groups[0]?.id || null,
       month: saved.month || fallback.month,
+      homeDate: normalizeIsoDate(saved.homeDate) || fallback.homeDate,
       theme,
     };
   } catch {
@@ -571,12 +621,14 @@ function createSeedState() {
     selectedPoolId: poolId,
     selectedGroupId: groupId,
     month: toMonthValue(new Date()),
+    homeDate: toIsoDate(new Date()),
     theme: state.theme || "white",
   };
 }
 
 function saveState() {
   state.month = elements.monthInput.value || state.month;
+  state.homeDate = normalizeIsoDate(elements.homeDateInput.value) || state.homeDate || toIsoDate(new Date());
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -613,6 +665,7 @@ function render() {
   renderView();
   renderHomeSummary();
   renderPools();
+  renderHomeQuickAttendance();
   renderGroups();
   renderThemeOptions();
   renderPoolForm();
@@ -675,6 +728,121 @@ function renderPools() {
       `;
     })
     .join("");
+}
+
+function renderHomeQuickAttendance() {
+  const dateValue = getHomeDateValue();
+  const selectedDate = parseIsoDate(dateValue);
+  const groupsForDate = getGroupsForDate(dateValue);
+
+  elements.homeDateInput.value = dateValue;
+
+  if (!groupsForDate.length) {
+    selectedQuickGroupId = null;
+    elements.homeGroupTabs.innerHTML = `<p class="quick-empty-text">На эту дату нет групп по расписанию.</p>`;
+    elements.homeGroupPanel.innerHTML = `
+      <div class="quick-empty-state">
+        <i data-lucide="calendar-check-2"></i>
+        <h3>Групп нет</h3>
+        <p>Выберите другую дату или добавьте дни тренировок в настройках групп.</p>
+      </div>
+    `;
+    refreshIcons();
+    return;
+  }
+
+  if (!groupsForDate.some((group) => group.id === selectedQuickGroupId)) {
+    selectedQuickGroupId = groupsForDate[0].id;
+  }
+
+  elements.homeGroupTabs.innerHTML = groupsForDate
+    .map((group) => {
+      const pool = getPool(group.poolId);
+      const active = group.id === selectedQuickGroupId ? " active" : "";
+      return `
+        <button class="quick-group-tab${active}" type="button" data-quick-group-id="${group.id}" aria-pressed="${group.id === selectedQuickGroupId}">
+          <span class="quick-group-time">${escapeHtml(group.start)}</span>
+          <span class="quick-group-meta">${escapeHtml(pool?.name || "Бассейн")}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const activeGroup = getGroup(selectedQuickGroupId) || groupsForDate[0];
+  const activePool = getPool(activeGroup.poolId);
+  const monthValue = dateValue.slice(0, 7);
+  const visibleStudents = getVisibleStudentsForMonth(activeGroup, monthValue);
+  const dayMarks = activeGroup.attendance[dateValue] || {};
+
+  const totals = visibleStudents.reduce(
+    (acc, student) => {
+      const value = dayMarks[student.id] || "";
+      if (value === "+") acc.present += 1;
+      if (value === "-") acc.absent += 1;
+      if (!value) acc.empty += 1;
+      return acc;
+    },
+    { present: 0, absent: 0, empty: 0 },
+  );
+
+  if (!visibleStudents.length) {
+    elements.homeGroupPanel.innerHTML = `
+      <div class="quick-empty-state">
+        <i data-lucide="users"></i>
+        <h3>${escapeHtml(activePool?.name || "Бассейн")} · ${escapeHtml(activeGroup.start)}</h3>
+        <p>На ${formatFullDateLabel(selectedDate)} в этой группе нет активных учеников.</p>
+      </div>
+    `;
+    refreshIcons();
+    return;
+  }
+
+  const rows = visibleStudents
+    .map((student) => {
+      const value = dayMarks[student.id] || "";
+      const birthYear = student.birthYear ? `${escapeHtml(student.birthYear)} г.р.` : "год не указан";
+      return `
+        <tr>
+          <th scope="row">
+            <span class="quick-student-name">${escapeHtml(student.name)}</span>
+            <span class="quick-student-meta">${birthYear}</span>
+          </th>
+          <td>
+            <div class="quick-mark-controls">
+              <button class="quick-mark-button${value === "+" ? " active present" : ""}" type="button" data-quick-mark-group-id="${activeGroup.id}" data-quick-mark-student-id="${student.id}" data-quick-mark-value="+" aria-label="${escapeHtml(student.name)}: был">+</button>
+              <button class="quick-mark-button${value === "-" ? " active absent" : ""}" type="button" data-quick-mark-group-id="${activeGroup.id}" data-quick-mark-student-id="${student.id}" data-quick-mark-value="-" aria-label="${escapeHtml(student.name)}: не был">-</button>
+              <button class="quick-mark-button${value === "" ? " active blank" : ""}" type="button" data-quick-mark-group-id="${activeGroup.id}" data-quick-mark-student-id="${student.id}" data-quick-mark-value="blank" aria-label="${escapeHtml(student.name)}: пусто">·</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  elements.homeGroupPanel.innerHTML = `
+    <div class="quick-group-header">
+      <div>
+        <h3>${escapeHtml(activePool?.name || "Бассейн")} · ${escapeHtml(activeGroup.start)}</h3>
+        <p>${formatFullDateLabel(selectedDate)} · ${formatDays(activeGroup.days)}</p>
+      </div>
+      <div class="quick-group-stats">
+        <span class="stat-pill">+ ${totals.present}</span>
+        <span class="stat-pill">- ${totals.absent}</span>
+        <span class="stat-pill">Пусто ${totals.empty}</span>
+      </div>
+    </div>
+    <div class="quick-table-wrap">
+      <table class="quick-table">
+        <thead>
+          <tr>
+            <th scope="col">Ученик</th>
+            <th scope="col">Отметка</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderThemeOptions() {
@@ -972,18 +1140,30 @@ function renderStats() {
 function setNextAttendance(studentId, date) {
   const group = getSelectedGroup();
   if (!group) return;
-  if (!getVisibleStudentsForMonth(group, elements.monthInput.value).some((student) => student.id === studentId)) return;
-
-  if (!group.attendance[date]) {
-    group.attendance[date] = {};
-  }
-
-  const current = group.attendance[date][studentId] || "";
+  const current = group.attendance[date]?.[studentId] || "";
   const next = attendanceFlow[(attendanceFlow.indexOf(current) + 1) % attendanceFlow.length];
+  const changed = setAttendanceValue(group.id, studentId, date, next, elements.monthInput.value);
+  if (!changed) return;
 
-  if (next) {
-    group.attendance[date][studentId] = next;
+  renderJournal();
+  renderStats();
+}
+
+function setAttendanceValue(groupId, studentId, date, nextValue, monthValueOverride = null) {
+  const group = getGroup(groupId);
+  if (!group) return false;
+
+  const monthValue = monthValueOverride || date.slice(0, 7);
+  if (!getVisibleStudentsForMonth(group, monthValue).some((student) => student.id === studentId)) return false;
+  if (!["", "+", "-"].includes(nextValue)) return false;
+
+  if (nextValue) {
+    if (!group.attendance[date]) {
+      group.attendance[date] = {};
+    }
+    group.attendance[date][studentId] = nextValue;
   } else {
+    if (!group.attendance[date]) return false;
     delete group.attendance[date][studentId];
     if (!Object.keys(group.attendance[date]).length) {
       delete group.attendance[date];
@@ -991,8 +1171,7 @@ function setNextAttendance(studentId, date) {
   }
 
   saveState();
-  renderJournal();
-  renderStats();
+  return true;
 }
 
 function removeStudent(studentId) {
@@ -1142,6 +1321,26 @@ function getGroupsForSelectedPool() {
   return state.groups.filter((group) => group.poolId === state.selectedPoolId);
 }
 
+function getGroupsForDate(dateValue) {
+  const date = parseIsoDate(dateValue);
+  if (!date) return [];
+
+  const weekday = date.getDay();
+  const poolOrder = new Map(state.pools.map((pool, index) => [pool.id, index]));
+
+  return state.groups
+    .filter((group) => group.days.includes(weekday))
+    .sort((left, right) => {
+      const poolOrderLeft = poolOrder.get(left.poolId) ?? 0;
+      const poolOrderRight = poolOrder.get(right.poolId) ?? 0;
+      return poolOrderLeft - poolOrderRight;
+    });
+}
+
+function getHomeDateValue() {
+  return normalizeIsoDate(state.homeDate) || toIsoDate(new Date());
+}
+
 function getVisibleStudentsForMonth(group, monthValue) {
   return group.students.filter((student) => isStudentVisibleInMonth(student, monthValue));
 }
@@ -1181,6 +1380,15 @@ function formatMonthLabel(monthValue) {
   return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date);
 }
 
+function formatFullDateLabel(date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
 function toMonthValue(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -1191,6 +1399,32 @@ function toIsoDate(date) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+function parseIsoDate(value) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function normalizeIsoDate(value) {
+  const parsed = parseIsoDate(value);
+  return parsed ? toIsoDate(parsed) : null;
 }
 
 function createId(prefix) {

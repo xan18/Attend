@@ -387,6 +387,235 @@ button:disabled {
   padding: 0 14px 14px;
 }
 
+.quick-date-field {
+  display: grid;
+  gap: 7px;
+  width: 180px;
+}
+
+.quick-date-field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quick-date-field input {
+  min-height: 40px;
+}
+
+.quick-attendance-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+
+.quick-group-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-group-tab {
+  display: grid;
+  gap: 2px;
+  min-width: 140px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-muted);
+  text-align: left;
+}
+
+.quick-group-tab.active {
+  border-color: var(--teal);
+  background: var(--surface-strong);
+}
+
+.quick-group-time {
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.quick-group-meta {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.quick-empty-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.quick-group-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.quick-empty-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 20px;
+  text-align: center;
+}
+
+.quick-empty-state svg {
+  width: 24px;
+  height: 24px;
+  color: var(--teal);
+}
+
+.quick-empty-state h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.quick-empty-state p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.quick-group-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.quick-group-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.quick-group-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.quick-group-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-table-wrap {
+  overflow: auto;
+}
+
+.quick-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.quick-table th,
+.quick-table td {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--table-cell);
+}
+
+.quick-table th:last-child,
+.quick-table td:last-child {
+  border-right: 0;
+}
+
+.quick-table thead th {
+  height: 42px;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: var(--table-head);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.quick-table thead th:last-child {
+  text-align: center;
+}
+
+.quick-table tbody th {
+  min-width: 240px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.quick-table tbody td {
+  width: 146px;
+  min-width: 146px;
+  padding: 6px;
+}
+
+.quick-student-name {
+  display: block;
+  font-weight: 800;
+}
+
+.quick-student-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.quick-mark-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.quick-mark-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.quick-mark-button:hover {
+  border-color: var(--soft-hover-line);
+}
+
+.quick-mark-button.active {
+  color: var(--ink);
+}
+
+.quick-mark-button.present.active {
+  border-color: #b7e6c5;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.quick-mark-button.absent.active {
+  border-color: #ffc4c4;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.quick-mark-button.blank.active {
+  border-color: var(--teal);
+  background: var(--surface-strong);
+  color: var(--teal);
+}
+
 .pool-item,
 .group-item {
   display: grid;
@@ -1045,6 +1274,10 @@ fieldset {
     justify-content: flex-start;
   }
 
+  .quick-date-field {
+    width: 100%;
+  }
+
   .home-grid,
   .pool-layout {
     grid-template-columns: 1fr;
@@ -1061,6 +1294,11 @@ fieldset {
   .stats {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .quick-group-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .student-form {
@@ -1092,6 +1330,23 @@ fieldset {
   .pool-card-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .quick-group-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .quick-group-tab {
+    min-width: 0;
+  }
+
+  .quick-table {
+    min-width: 0;
+  }
+
+  .quick-table tbody th {
+    min-width: 180px;
   }
 
   .day-pills {
