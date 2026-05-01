@@ -26,6 +26,8 @@ const elements = {
   homeDateInput: document.querySelector("#homeDateInput"),
   homeGroupTabs: document.querySelector("#homeGroupTabs"),
   homeGroupPanel: document.querySelector("#homeGroupPanel"),
+  openThemePopoverButton: document.querySelector("#openThemePopoverButton"),
+  openPoolEditorPopoverButton: document.querySelector("#openPoolEditorPopoverButton"),
   backHomeButton: document.querySelector("#backHomeButton"),
   currentPoolTitle: document.querySelector("#currentPoolTitle"),
   currentPoolSubtitle: document.querySelector("#currentPoolSubtitle"),
@@ -36,9 +38,11 @@ const elements = {
   poolForm: document.querySelector("#poolForm"),
   poolFormTitle: document.querySelector("#poolFormTitle"),
   poolNameInput: document.querySelector("#poolNameInput"),
+  poolEditor: document.querySelector("#poolEditor"),
   groupList: document.querySelector("#groupList"),
   groupsPanelTitle: document.querySelector("#groupsPanelTitle"),
   themeOptions: document.querySelector("#themeOptions"),
+  themePanel: document.querySelector(".theme-panel"),
   newGroupButton: document.querySelector("#newGroupButton"),
   deleteGroupButton: document.querySelector("#deleteGroupButton"),
   groupForm: document.querySelector("#groupForm"),
@@ -88,6 +92,7 @@ let draggedGroupId = null;
 let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
 let selectedQuickGroupId = null;
+let homePopover = null;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -147,6 +152,16 @@ function wireEvents() {
 
     saveState();
     render();
+  });
+
+  elements.openThemePopoverButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleHomePopover("theme");
+  });
+
+  elements.openPoolEditorPopoverButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleHomePopover("pool");
   });
 
   elements.poolList.addEventListener("click", (event) => {
@@ -469,6 +484,11 @@ function wireEvents() {
   document.addEventListener?.("keydown", (event) => {
     if (event.key !== "Escape") return;
 
+    if (homePopover) {
+      closeHomePopover();
+      return;
+    }
+
     if (!elements.studentModal.hidden) {
       closeStudentEditor();
       return;
@@ -485,6 +505,20 @@ function wireEvents() {
   });
 
   elements.exportButton.addEventListener("click", exportCsv);
+
+  document.addEventListener("click", (event) => {
+    if (!homePopover || currentView !== "home") return;
+    if (
+      elements.themePanel.contains(event.target) ||
+      elements.poolEditor.contains(event.target) ||
+      elements.openThemePopoverButton.contains(event.target) ||
+      elements.openPoolEditorPopoverButton.contains(event.target)
+    ) {
+      return;
+    }
+
+    closeHomePopover();
+  });
 
   elements.themeOptions.addEventListener("click", (event) => {
     const button = event.target.closest("[data-theme-value]");
@@ -523,6 +557,7 @@ function showHome() {
 }
 
 function showPool() {
+  closeHomePopover();
   if (!getSelectedPool()) {
     currentView = "home";
   } else {
@@ -530,6 +565,23 @@ function showPool() {
   }
 
   render();
+}
+
+function toggleHomePopover(type) {
+  if (homePopover === type) {
+    closeHomePopover();
+    return;
+  }
+
+  homePopover = type;
+  elements.themePanel.classList.toggle("is-popover-open", type === "theme");
+  elements.poolEditor.classList.toggle("is-popover-open", type === "pool");
+}
+
+function closeHomePopover() {
+  homePopover = null;
+  elements.themePanel.classList.remove("is-popover-open");
+  elements.poolEditor.classList.remove("is-popover-open");
 }
 
 function openStudentEditor(studentId) {
