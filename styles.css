@@ -473,6 +473,27 @@ button:disabled {
   min-height: 40px;
 }
 
+.quick-date-controls {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  gap: 6px;
+  align-items: center;
+}
+
+.quick-date-shift {
+  width: 36px;
+  min-width: 36px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.quick-date-shift:hover {
+  border-color: var(--soft-hover-line);
+}
+
 .quick-attendance-body {
   display: grid;
   gap: 12px;

@@ -132,7 +132,15 @@
             </div>
             <label class="quick-date-field">
               <span>Дата</span>
-              <input id="homeDateInput" type="date" />
+              <div class="quick-date-controls">
+                <button class="icon-button quick-date-shift" id="homeDatePrevButton" type="button" aria-label="Предыдущий день" title="Предыдущий день">
+                  <i data-lucide="chevron-left"></i>
+                </button>
+                <input id="homeDateInput" type="date" />
+                <button class="icon-button quick-date-shift" id="homeDateNextButton" type="button" aria-label="Следующий день" title="Следующий день">
+                  <i data-lucide="chevron-right"></i>
+                </button>
+              </div>
             </label>
           </div>
 

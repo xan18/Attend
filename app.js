@@ -27,6 +27,8 @@ const elements = {
   poolView: document.querySelector("#poolView"),
   homeSummary: document.querySelector("#homeSummary"),
   homeDateInput: document.querySelector("#homeDateInput"),
+  homeDatePrevButton: document.querySelector("#homeDatePrevButton"),
+  homeDateNextButton: document.querySelector("#homeDateNextButton"),
   homeGroupTabs: document.querySelector("#homeGroupTabs"),
   homeGroupPanel: document.querySelector("#homeGroupPanel"),
   openThemePopoverButton: document.querySelector("#openThemePopoverButton"),
@@ -253,6 +255,14 @@ function wireEvents() {
     selectedQuickGroupId = null;
     saveState();
     renderHomeQuickAttendance();
+  });
+
+  elements.homeDatePrevButton.addEventListener("click", () => {
+    shiftHomeDateByDays(-1);
+  });
+
+  elements.homeDateNextButton.addEventListener("click", () => {
+    shiftHomeDateByDays(1);
   });
 
   elements.homeGroupTabs.addEventListener("click", (event) => {
@@ -2356,6 +2366,17 @@ function getGroupsForDate(dateValue) {
 
 function getHomeDateValue() {
   return normalizeIsoDate(state.homeDate) || toIsoDate(new Date());
+}
+
+function shiftHomeDateByDays(deltaDays) {
+  const baseDate = parseIsoDate(getHomeDateValue()) || new Date();
+  baseDate.setDate(baseDate.getDate() + deltaDays);
+  const nextIsoDate = toIsoDate(baseDate);
+  state.homeDate = nextIsoDate;
+  elements.homeDateInput.value = nextIsoDate;
+  selectedQuickGroupId = null;
+  saveState();
+  renderHomeQuickAttendance();
 }
 
 function getVisibleStudentsForMonth(group, monthValue) {
