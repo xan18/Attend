@@ -134,8 +134,16 @@ if (!state.pools.length) {
 wireEvents();
 render();
 initAuth();
+initializeViewHistory();
 
 function wireEvents() {
+  window.addEventListener("popstate", (event) => {
+    const nextView = event.state?.view === "pool" ? "pool" : "home";
+    currentView = nextView === "pool" && getSelectedPool() ? "pool" : "home";
+    closeHomePopover();
+    render();
+  });
+
   window.addEventListener("beforeunload", () => {
     if (!supabaseClient || !currentUser?.id || syncInProgress) return;
     if (syncTimer) {
@@ -931,7 +939,15 @@ function deleteEditingPool() {
 }
 
 function showHome() {
+  closeHomePopover();
+
+  if (currentView === "pool" && window.history?.state?.view === "pool") {
+    window.history.back();
+    return;
+  }
+
   currentView = "home";
+  updateViewHistory("replace");
   render();
 }
 
@@ -939,11 +955,33 @@ function showPool() {
   closeHomePopover();
   if (!getSelectedPool()) {
     currentView = "home";
+    updateViewHistory("replace");
   } else {
+    if (currentView !== "pool") {
+      updateViewHistory("push", "pool");
+    }
     currentView = "pool";
   }
 
   render();
+}
+
+function initializeViewHistory() {
+  updateViewHistory("replace", currentView);
+}
+
+function updateViewHistory(mode = "replace", view = currentView) {
+  if (!window.history?.replaceState) return;
+
+  const normalized = view === "pool" ? "pool" : "home";
+  const stateValue = { view: normalized };
+
+  if (mode === "push" && window.history?.pushState) {
+    window.history.pushState(stateValue, "");
+    return;
+  }
+
+  window.history.replaceState(stateValue, "");
 }
 
 function toggleHomePopover(type) {
