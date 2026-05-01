@@ -1100,6 +1100,7 @@ function loadState() {
 function createSeedState() {
   const poolId = createId("pool");
   const groupId = createId("group");
+  const monthValue = toMonthValue(new Date());
   const students = [
     ["Алина Мамбетова", "2014"],
     ["Даниил Смирнов", "2013"],
@@ -1108,6 +1109,7 @@ function createSeedState() {
     id: createId("student"),
     name,
     birthYear,
+    activeFromMonth: monthValue,
   }));
 
   return {
@@ -1131,7 +1133,7 @@ function createSeedState() {
     ],
     selectedPoolId: poolId,
     selectedGroupId: groupId,
-    month: toMonthValue(new Date()),
+    month: monthValue,
     homeDate: toIsoDate(new Date()),
     theme: state.theme || "navy",
   };
@@ -1259,13 +1261,15 @@ async function syncStateToSupabase() {
 
     state.groups.forEach((group) => {
       group.students.forEach((student) => {
+        const activeFromMonth = student.activeFromMonth || state.month || elements.monthInput.value || toMonthValue(new Date());
+        student.activeFromMonth = activeFromMonth;
         studentRows.push({
           id: student.id,
           user_id: userId,
           group_id: group.id,
           name: student.name,
           birth_year: student.birthYear ? Number(student.birthYear) : null,
-          active_from_month: student.activeFromMonth || null,
+          active_from_month: activeFromMonth,
           removed_from_month: student.removedFromMonth || null,
           updated_at: nowIso,
         });
