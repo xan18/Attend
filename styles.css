@@ -659,15 +659,17 @@ button:disabled {
 
 .quick-student-name {
   display: block;
-  font-weight: 800;
+  font-size: 1.18rem;
+  font-weight: 500;
+  line-height: 1.22;
 }
 
 .quick-student-meta {
   display: block;
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 500;
 }
 
 .quick-mark-controls {
