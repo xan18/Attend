@@ -114,6 +114,7 @@ let isHydratingFromCloud = false;
 let syncTimer = null;
 let syncInProgress = false;
 let attendanceDateColumn = null;
+let attendanceDateColumnChecked = false;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -597,7 +598,14 @@ async function initAuth() {
 }
 
 async function applySession(session) {
+  const previousUserId = currentUser?.id || null;
   currentUser = session?.user || null;
+  const nextUserId = currentUser?.id || null;
+
+  if (previousUserId !== nextUserId) {
+    attendanceDateColumn = null;
+    attendanceDateColumnChecked = false;
+  }
 
   if (!currentUser) {
     openAuthModal();
@@ -742,6 +750,25 @@ async function loadStateFromSupabase() {
     window.alert(`Ошибка загрузки данных из Supabase: ${error.message}`);
     return null;
   }
+}
+
+async function resolveAttendanceDateColumn() {
+  if (!supabaseClient || !currentUser?.id || attendanceDateColumnChecked) return;
+  attendanceDateColumnChecked = true;
+
+  const dateProbe = await supabaseClient.from("attendance").select("date").limit(1);
+  if (!dateProbe.error) {
+    attendanceDateColumn = "date";
+    return;
+  }
+
+  const sessionDateProbe = await supabaseClient.from("attendance").select("session_date").limit(1);
+  if (!sessionDateProbe.error) {
+    attendanceDateColumn = "session_date";
+    return;
+  }
+
+  attendanceDateColumn = "date";
 }
 
 function openAuthModal() {
@@ -1170,6 +1197,7 @@ async function syncStateToSupabase() {
   syncInProgress = true;
 
   try {
+    await resolveAttendanceDateColumn();
     const idsChanged = normalizeIdsForCloud();
     if (idsChanged) {
       render();
@@ -1288,7 +1316,17 @@ async function syncStateToSupabase() {
 
     localStorage.setItem(getStorageKey(), JSON.stringify(state));
   } catch (error) {
-    window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
+    const errorText = String(error?.message || "").toLowerCase();
+    const isDateColumnCacheError =
+      errorText.includes("attendance") &&
+      (errorText.includes("session_date") || errorText.includes("'date' column")) &&
+      errorText.includes("schema cache");
+
+    if (isDateColumnCacheError) {
+      console.warn("Supabase schema cache date-column mismatch:", error?.message);
+    } else {
+      window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
+    }
   } finally {
     syncInProgress = false;
   }
