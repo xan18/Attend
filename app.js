@@ -639,7 +639,7 @@ async function loadStateFromSupabase() {
         supabaseClient.from("pools").select("*").order("created_at", { ascending: true }),
         supabaseClient.from("groups").select("*").order("sort_order", { ascending: true }),
         supabaseClient.from("students").select("*").order("created_at", { ascending: true }),
-        supabaseClient.from("attendance").select("*").order("session_date", { ascending: true }),
+        supabaseClient.from("attendance").select("*").order("date", { ascending: true }),
       ]);
 
     const loadError = poolsError || groupsError || studentsError || attendanceError;
@@ -673,7 +673,7 @@ async function loadStateFromSupabase() {
     const attendanceByGroup = new Map();
     (attendance || []).forEach((row) => {
       const groupId = String(row.group_id);
-      const date = row.session_date || row.date;
+      const date = row.date || row.session_date;
       const studentId = String(row.student_id);
       const mark = row.mark || "";
       if (!date || !mark) return;
@@ -1192,7 +1192,7 @@ async function syncStateToSupabase() {
             user_id: userId,
             group_id: group.id,
             student_id: studentId,
-            session_date: date,
+            date,
             mark,
             updated_at: nowIso,
           });
