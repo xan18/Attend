@@ -290,5 +290,30 @@
         </form>
       </section>
     </div>
+
+    <div class="modal-backdrop" id="deleteStudentModal" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="deleteStudentModalTitle">
+        <div class="modal-heading">
+          <h2 id="deleteStudentModalTitle">Удаление ученика</h2>
+          <button class="icon-button" id="closeDeleteStudentModalButton" type="button" aria-label="Закрыть" title="Закрыть">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <p class="modal-note" id="deleteStudentModalText"></p>
+
+        <div class="modal-actions delete-student-actions">
+          <button class="secondary-button" id="cancelDeleteStudentButton" type="button">Отмена</button>
+          <button class="danger-button" id="deleteStudentFromMonthButton" type="button">
+            <i data-lucide="x"></i>
+            Этот и следующие
+          </button>
+          <button class="danger-button" id="deleteStudentAllButton" type="button">
+            <i data-lucide="trash-2"></i>
+            Удалить в целом
+          </button>
+        </div>
+      </section>
+    </div>
   </body>
 </html>

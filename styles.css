@@ -1095,7 +1095,7 @@ fieldset {
 
 .student-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 154px;
+  grid-template-columns: minmax(0, 1fr) 114px;
   align-items: center;
   gap: 8px;
 }
@@ -1126,7 +1126,6 @@ fieldset {
 
 .edit-student,
 .transfer-student,
-.delete-student-everywhere,
 .remove-student {
   width: 34px;
   min-width: 34px;
@@ -1157,16 +1156,7 @@ fieldset {
   color: var(--red);
 }
 
-.delete-student-everywhere {
-  color: var(--red);
-}
-
 .remove-student:hover {
-  border-color: var(--red);
-  background: var(--red-soft);
-}
-
-.delete-student-everywhere:hover {
   border-color: var(--red);
   background: var(--red-soft);
 }
@@ -1310,6 +1300,16 @@ fieldset {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.delete-student-actions {
+  flex-wrap: wrap;
+}
+
+.modal-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 @media (max-width: 980px) {

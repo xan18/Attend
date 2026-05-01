@@ -67,6 +67,12 @@ const elements = {
   transferStudentTargetSelect: document.querySelector("#transferStudentTargetSelect"),
   closeTransferStudentModalButton: document.querySelector("#closeTransferStudentModalButton"),
   cancelTransferStudentButton: document.querySelector("#cancelTransferStudentButton"),
+  deleteStudentModal: document.querySelector("#deleteStudentModal"),
+  deleteStudentModalText: document.querySelector("#deleteStudentModalText"),
+  closeDeleteStudentModalButton: document.querySelector("#closeDeleteStudentModalButton"),
+  cancelDeleteStudentButton: document.querySelector("#cancelDeleteStudentButton"),
+  deleteStudentFromMonthButton: document.querySelector("#deleteStudentFromMonthButton"),
+  deleteStudentAllButton: document.querySelector("#deleteStudentAllButton"),
   stats: document.querySelector("#stats"),
   journalTable: document.querySelector("#journalTable"),
   emptyState: document.querySelector("#emptyState"),
@@ -77,6 +83,7 @@ let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let editingStudentId = null;
 let transferStudentId = null;
+let deleteStudentId = null;
 let draggedGroupId = null;
 let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
@@ -394,7 +401,6 @@ function wireEvents() {
     const editButton = event.target.closest("[data-edit-student-id]");
     const transferButton = event.target.closest("[data-transfer-student-id]");
     const removeButton = event.target.closest("[data-remove-student-id]");
-    const deleteEverywhereButton = event.target.closest("[data-delete-student-everywhere-id]");
 
     if (attendanceButton) {
       setNextAttendance(attendanceButton.dataset.studentId, attendanceButton.dataset.date);
@@ -412,12 +418,7 @@ function wireEvents() {
     }
 
     if (removeButton) {
-      removeStudent(removeButton.dataset.removeStudentId);
-      return;
-    }
-
-    if (deleteEverywhereButton) {
-      deleteStudentEverywhere(deleteEverywhereButton.dataset.deleteStudentEverywhereId);
+      openStudentDeleteChoice(removeButton.dataset.removeStudentId);
     }
   });
 
@@ -447,6 +448,24 @@ function wireEvents() {
     }
   });
 
+  elements.closeDeleteStudentModalButton.addEventListener("click", closeStudentDeleteChoice);
+  elements.cancelDeleteStudentButton.addEventListener("click", closeStudentDeleteChoice);
+  elements.deleteStudentFromMonthButton.addEventListener("click", () => {
+    if (!deleteStudentId) return;
+    removeStudent(deleteStudentId, { skipConfirm: true });
+    closeStudentDeleteChoice();
+  });
+  elements.deleteStudentAllButton.addEventListener("click", () => {
+    if (!deleteStudentId) return;
+    deleteStudentEverywhere(deleteStudentId, { skipConfirm: true });
+    closeStudentDeleteChoice();
+  });
+  elements.deleteStudentModal.addEventListener("click", (event) => {
+    if (event.target === elements.deleteStudentModal) {
+      closeStudentDeleteChoice();
+    }
+  });
+
   document.addEventListener?.("keydown", (event) => {
     if (event.key !== "Escape") return;
 
@@ -457,6 +476,11 @@ function wireEvents() {
 
     if (!elements.transferStudentModal.hidden) {
       closeStudentTransfer();
+      return;
+    }
+
+    if (!elements.deleteStudentModal.hidden) {
+      closeStudentDeleteChoice();
     }
   });
 
@@ -555,6 +579,23 @@ function closeStudentTransfer() {
   elements.transferStudentModal.hidden = true;
   elements.transferStudentForm.reset();
   elements.transferStudentTargetSelect.innerHTML = "";
+}
+
+function openStudentDeleteChoice(studentId) {
+  const group = getSelectedGroup();
+  const student = group?.students.find((item) => item.id === studentId);
+  if (!group || !student) return;
+
+  deleteStudentId = studentId;
+  elements.deleteStudentModalText.textContent =
+    `Выберите как удалить ученика "${student.name}".`;
+  elements.deleteStudentModal.hidden = false;
+}
+
+function closeStudentDeleteChoice() {
+  deleteStudentId = null;
+  elements.deleteStudentModal.hidden = true;
+  elements.deleteStudentModalText.textContent = "";
 }
 
 function submitStudentTransfer() {
@@ -1158,10 +1199,7 @@ function renderJournal() {
                 <button class="icon-button edit-student" type="button" data-edit-student-id="${student.id}" aria-label="Редактировать ученика" title="Редактировать ученика">
                   <i data-lucide="pencil"></i>
                 </button>
-                <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Убрать ученика с этого месяца" title="Убрать с этого месяца и дальше">
-                  <i data-lucide="x"></i>
-                </button>
-                <button class="icon-button delete-student-everywhere" type="button" data-delete-student-everywhere-id="${student.id}" aria-label="Удалить ученика из всех месяцев" title="Удалить из всех месяцев">
+                <button class="icon-button remove-student" type="button" data-remove-student-id="${student.id}" aria-label="Удалить ученика" title="Удалить ученика">
                   <i data-lucide="trash-2"></i>
                 </button>
               </span>
@@ -1223,10 +1261,17 @@ function renderStats() {
 
 function renderStudentTransferButtons() {
   elements.journalTable.querySelectorAll(".student-actions").forEach((actions) => {
-    if (actions.querySelector("[data-transfer-student-id]")) return;
-
     const removeButton = actions.querySelector("[data-remove-student-id]");
     if (!removeButton) return;
+
+    removeButton.setAttribute("aria-label", "Удалить ученика");
+    removeButton.setAttribute("title", "Удалить ученика");
+    const removeIcon = removeButton.querySelector("i");
+    if (removeIcon) {
+      removeIcon.setAttribute("data-lucide", "trash-2");
+    }
+
+    if (actions.querySelector("[data-transfer-student-id]")) return;
 
     const studentId = removeButton.dataset.removeStudentId;
     if (!studentId) return;
@@ -1279,7 +1324,7 @@ function setAttendanceValue(groupId, studentId, date, nextValue, monthValueOverr
   return true;
 }
 
-function removeStudent(studentId) {
+function removeStudent(studentId, options = {}) {
   const group = getSelectedGroup();
   if (!group) return;
 
@@ -1287,10 +1332,12 @@ function removeStudent(studentId) {
   if (!student) return;
 
   const monthValue = elements.monthInput.value;
-  const confirmed = window.confirm(
-    `Убрать ученика "${student.name}" из группы с ${formatMonthLabel(monthValue)} и следующих месяцев? В предыдущих месяцах он останется в журнале.`,
-  );
-  if (!confirmed) return;
+  if (!options.skipConfirm) {
+    const confirmed = window.confirm(
+      `Убрать ученика "${student.name}" из группы с ${formatMonthLabel(monthValue)} и следующих месяцев? В предыдущих месяцах он останется в журнале.`,
+    );
+    if (!confirmed) return;
+  }
 
   student.removedFromMonth = monthValue;
 
@@ -1301,17 +1348,19 @@ function removeStudent(studentId) {
   refreshIcons();
 }
 
-function deleteStudentEverywhere(studentId) {
+function deleteStudentEverywhere(studentId, options = {}) {
   const group = getSelectedGroup();
   if (!group) return;
 
   const student = group.students.find((item) => item.id === studentId);
   if (!student) return;
 
-  const confirmed = window.confirm(
-    `Полностью удалить ученика "${student.name}" из всех месяцев и стереть все его отметки? Это действие нельзя отменить.`,
-  );
-  if (!confirmed) return;
+  if (!options.skipConfirm) {
+    const confirmed = window.confirm(
+      `Полностью удалить ученика "${student.name}" из всех месяцев и стереть все его отметки? Это действие нельзя отменить.`,
+    );
+    if (!confirmed) return;
+  }
 
   group.students = group.students.filter((item) => item.id !== studentId);
   Object.keys(group.attendance).forEach((date) => {
