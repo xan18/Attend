@@ -860,11 +860,35 @@ async function submitAuthForm() {
 }
 
 async function signOutUser() {
-  if (!supabaseClient) return;
-  const { error } = await supabaseClient.auth.signOut();
-  if (error) {
-    window.alert(error.message);
+  setSyncStatus("idle");
+
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient.auth.signOut({ scope: "local" });
+      if (error) {
+        console.warn("Supabase signOut error:", error.message);
+      }
+    } catch (error) {
+      console.warn("Supabase signOut exception:", error?.message || error);
+    }
   }
+
+  forceLocalSignOut();
+}
+
+function forceLocalSignOut() {
+  currentUser = null;
+  attendanceDateColumn = null;
+  attendanceDateColumnChecked = false;
+
+  Object.keys(localStorage).forEach((key) => {
+    if (key.includes("supabase") || key.startsWith("sb-")) {
+      localStorage.removeItem(key);
+    }
+  });
+
+  openAuthModal();
+  updateAuthBar();
 }
 
 function deleteEditingPool() {
