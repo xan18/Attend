@@ -1242,7 +1242,7 @@ async function syncStateToSupabase() {
           [dateColumn]: entry_date,
         }));
 
-      let dateColumn = attendanceDateColumn || "session_date";
+      let dateColumn = attendanceDateColumn || "date";
       let { error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn));
       const errorText = String(error?.message || "").toLowerCase();
 
@@ -1250,10 +1250,7 @@ async function syncStateToSupabase() {
         dateColumn = "date";
         attendanceDateColumn = "date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
-      } else if (
-        error &&
-        (errorText.includes("attendance.date") || errorText.includes("'date' column") || errorText.includes("column date"))
-      ) {
+      } else if (error && errorText.includes("date")) {
         dateColumn = "session_date";
         attendanceDateColumn = "session_date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
