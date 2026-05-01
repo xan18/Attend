@@ -116,6 +116,7 @@ let syncTimer = null;
 let syncInProgress = false;
 let attendanceDateColumn = "training_date";
 let syncStatus = "idle";
+let cloudRefreshTimer = null;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -141,6 +142,16 @@ function wireEvents() {
       clearTimeout(syncTimer);
       syncTimer = null;
       syncStateToSupabase();
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    refreshStateFromCloud();
+  });
+
+  document.addEventListener?.("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshStateFromCloud();
     }
   });
 
@@ -614,6 +625,7 @@ async function applySession(session) {
   }
 
   if (!currentUser) {
+    stopCloudRefreshLoop();
     openAuthModal();
     updateAuthBar();
     return;
@@ -623,11 +635,12 @@ async function applySession(session) {
   closeAuthModal();
   const localState = loadState();
   const cloudState = await loadStateFromSupabase();
+  const shouldPushLocalState = !hasMeaningfulData(cloudState) && hasMeaningfulData(localState);
 
-  if (hasMeaningfulData(localState)) {
-    state = localState;
+  if (hasMeaningfulData(cloudState)) {
+    state = cloudState;
   } else {
-    state = cloudState || localState;
+    state = localState;
   }
 
   editingPoolId = state.selectedPoolId || null;
@@ -644,9 +657,11 @@ async function applySession(session) {
 
   updateAuthBar();
   render();
+  localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  startCloudRefreshLoop();
   isHydratingFromCloud = false;
 
-  if (hasMeaningfulData(state)) {
+  if (shouldPushLocalState || (!cloudState && state.pools.length)) {
     scheduleSupabaseSync();
   }
 }
@@ -662,6 +677,34 @@ function getLegacyStorageKey() {
 
 function hasMeaningfulData(value) {
   return Boolean(value?.pools?.length || value?.groups?.length);
+}
+
+function startCloudRefreshLoop() {
+  if (cloudRefreshTimer || !currentUser?.id) return;
+  cloudRefreshTimer = window.setInterval(() => {
+    refreshStateFromCloud();
+  }, 15000);
+}
+
+function stopCloudRefreshLoop() {
+  if (!cloudRefreshTimer) return;
+  window.clearInterval(cloudRefreshTimer);
+  cloudRefreshTimer = null;
+}
+
+async function refreshStateFromCloud() {
+  if (!supabaseClient || !currentUser?.id || syncInProgress || syncTimer || isHydratingFromCloud) return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+
+  const cloudState = await loadStateFromSupabase();
+  if (!hasMeaningfulData(cloudState)) return;
+
+  state = cloudState;
+  editingPoolId = state.selectedPoolId || null;
+  editingGroupId = state.selectedGroupId || null;
+  localStorage.setItem(getStorageKey(), JSON.stringify(state));
+  render();
+  setSyncStatus("ok");
 }
 
 async function loadStateFromSupabase() {
@@ -854,6 +897,7 @@ async function signOutUser() {
 function forceLocalSignOut() {
   currentUser = null;
   attendanceDateColumn = "training_date";
+  stopCloudRefreshLoop();
 
   Object.keys(localStorage).forEach((key) => {
     if (key.includes("supabase") || key.startsWith("sb-")) {
