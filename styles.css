@@ -1084,12 +1084,12 @@ fieldset {
   position: sticky;
   top: 0;
   z-index: 3;
-  height: 64px;
-  min-width: 62px;
-  padding: 7px 6px;
+  height: 72px;
+  min-width: 68px;
+  padding: 9px 7px;
   background: var(--table-head);
   color: var(--ink);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   text-align: center;
   vertical-align: middle;
 }
@@ -1107,12 +1107,12 @@ fieldset {
 }
 
 .date-head strong {
-  font-size: 1rem;
+  font-size: 1.12rem;
 }
 
 .date-head span {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.86rem;
   font-weight: 800;
 }
 
@@ -1120,18 +1120,18 @@ fieldset {
   position: sticky;
   left: 0;
   z-index: 2;
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
-  padding: 8px;
+  width: 330px;
+  min-width: 330px;
+  max-width: 330px;
+  padding: 10px;
   background: var(--table-cell);
 }
 
 .student-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 114px;
+  grid-template-columns: minmax(0, 1fr) 120px;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .student-info {
@@ -1142,14 +1142,16 @@ fieldset {
 
 .student-name {
   overflow: hidden;
+  font-size: 1rem;
   font-weight: 800;
+  line-height: 1.22;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .student-birth-year {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.86rem;
   font-weight: 800;
 }
 
@@ -1196,20 +1198,20 @@ fieldset {
 }
 
 .attendance-cell {
-  width: 62px;
-  min-width: 62px;
-  height: 50px;
-  padding: 5px;
+  width: 68px;
+  min-width: 68px;
+  height: 56px;
+  padding: 6px;
 }
 
 .attendance-button {
   width: 100%;
-  height: 40px;
+  height: 44px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: var(--surface-muted);
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: 1.28rem;
   font-weight: 900;
 }
 
@@ -1230,16 +1232,17 @@ fieldset {
 }
 
 .summary-cell {
-  min-width: 94px;
+  min-width: 112px;
   padding: 8px;
   background: var(--surface-muted);
   color: var(--muted);
+  font-size: 1rem;
   font-weight: 800;
   text-align: center;
 }
 
 .summary-head {
-  min-width: 94px;
+  min-width: 112px;
 }
 
 .empty-state {
@@ -1710,9 +1713,9 @@ fieldset {
 
   .journal-table th:first-child,
   .student-cell {
-    width: 214px;
-    min-width: 214px;
-    max-width: 214px;
+    width: 236px;
+    min-width: 236px;
+    max-width: 236px;
   }
 
   .student-row {
@@ -1733,13 +1736,14 @@ fieldset {
   }
 
   .attendance-cell {
-    width: 56px;
-    min-width: 56px;
-    height: 48px;
+    width: 60px;
+    min-width: 60px;
+    height: 52px;
   }
 
   .attendance-button {
-    height: 38px;
+    height: 40px;
+    font-size: 1.18rem;
   }
 
   .quick-group-tabs {
@@ -1830,18 +1834,18 @@ fieldset {
 
   .journal-table th:first-child,
   .student-cell {
-    width: 188px;
-    min-width: 188px;
-    max-width: 188px;
+    width: 210px;
+    min-width: 210px;
+    max-width: 210px;
   }
 
   .attendance-cell {
-    width: 52px;
-    min-width: 52px;
+    width: 58px;
+    min-width: 58px;
   }
 
   .summary-cell,
   .summary-head {
-    min-width: 74px;
+    min-width: 86px;
   }
 }
