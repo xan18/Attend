@@ -1244,12 +1244,16 @@ async function syncStateToSupabase() {
 
       let dateColumn = attendanceDateColumn || "session_date";
       let { error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn));
+      const errorText = String(error?.message || "").toLowerCase();
 
-      if (error && /column .*session_date.*does not exist|attendance\.session_date/i.test(error.message || "")) {
+      if (error && errorText.includes("session_date")) {
         dateColumn = "date";
         attendanceDateColumn = "date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
-      } else if (error && /column .*date.*does not exist|attendance\.date/i.test(error.message || "")) {
+      } else if (
+        error &&
+        (errorText.includes("attendance.date") || errorText.includes("'date' column") || errorText.includes("column date"))
+      ) {
         dateColumn = "session_date";
         attendanceDateColumn = "session_date";
         ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
