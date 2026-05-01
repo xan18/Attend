@@ -1263,6 +1263,101 @@ function normalizeIdsForCloud() {
   return changed;
 }
 
+function cloneImportedStateForCurrentAccount(imported) {
+  const fallbackMonth = imported.month || toMonthValue(new Date());
+  const fallbackDate = normalizeIsoDate(imported.homeDate) || toIsoDate(new Date());
+  const poolIdMap = new Map();
+  const sourcePools = Array.isArray(imported.pools) ? imported.pools : [];
+  const sourceGroups = Array.isArray(imported.groups) ? imported.groups : [];
+
+  const pools = sourcePools.map((pool) => {
+    const oldId = String(pool.id || createId("pool"));
+    const nextId = makeEntityId();
+    poolIdMap.set(oldId, nextId);
+    return {
+      id: nextId,
+      name: pool.name || "Бассейн",
+    };
+  });
+
+  if (!pools.length && sourceGroups.length) {
+    const nextId = makeEntityId();
+    pools.push({
+      id: nextId,
+      name: "Бассейн",
+    });
+  }
+
+  const groupIdMap = new Map();
+  const studentIdMap = new Map();
+
+  const groups = sourceGroups.map((group) => {
+    const oldGroupId = String(group.id || createId("group"));
+    const nextGroupId = makeEntityId();
+    const sourcePoolId = String(group.poolId || "");
+    const nextPoolId = poolIdMap.get(sourcePoolId) || pools[0]?.id || null;
+
+    groupIdMap.set(oldGroupId, nextGroupId);
+
+    const students = (Array.isArray(group.students) ? group.students : []).map((student) => {
+      const oldStudentId = String(student.id || createId("student"));
+      const nextStudentId = makeEntityId();
+      studentIdMap.set(`${oldGroupId}:${oldStudentId}`, nextStudentId);
+      return {
+        id: nextStudentId,
+        name: student.name || "Ученик",
+        birthYear: student.birthYear ? String(student.birthYear) : "",
+        activeFromMonth: student.activeFromMonth || fallbackMonth,
+        removedFromMonth: student.removedFromMonth || "",
+      };
+    });
+
+    const attendance = {};
+    Object.entries(group.attendance || {}).forEach(([date, marks]) => {
+      Object.entries(marks || {}).forEach(([studentId, mark]) => {
+        if (!mark) return;
+
+        const nextStudentId = studentIdMap.get(`${oldGroupId}:${String(studentId)}`);
+        if (!nextStudentId) return;
+
+        if (!attendance[date]) {
+          attendance[date] = {};
+        }
+
+        attendance[date][nextStudentId] = mark;
+      });
+    });
+
+    return {
+      id: nextGroupId,
+      poolId: nextPoolId,
+      name: group.name || group.start || "Группа",
+      start: group.start || group.name || "",
+      end: group.end || "",
+      days: Array.isArray(group.days) ? group.days.map(Number).filter((day) => day >= 0 && day <= 6) : [],
+      students,
+      attendance,
+    };
+  });
+
+  const selectedPoolId = poolIdMap.get(String(imported.selectedPoolId || "")) || pools[0]?.id || null;
+  const selectedGroupId =
+    groupIdMap.get(String(imported.selectedGroupId || "")) ||
+    groups.find((group) => group.poolId === selectedPoolId)?.id ||
+    groups[0]?.id ||
+    null;
+
+  return {
+    pools,
+    groups,
+    selectedPoolId,
+    selectedGroupId,
+    month: fallbackMonth,
+    homeDate: fallbackDate,
+    theme: "navy",
+  };
+}
+
 async function syncStateToSupabase() {
   if (syncInProgress || !supabaseClient || !currentUser?.id) return;
 
@@ -1424,15 +1519,7 @@ async function importBackupJson(event) {
       return;
     }
 
-    state = {
-      pools: imported.pools,
-      groups: imported.groups,
-      selectedPoolId: imported.selectedPoolId || imported.pools[0]?.id || null,
-      selectedGroupId: imported.selectedGroupId || imported.groups[0]?.id || null,
-      month: imported.month || toMonthValue(new Date()),
-      homeDate: normalizeIsoDate(imported.homeDate) || toIsoDate(new Date()),
-      theme: "navy",
-    };
+    state = cloneImportedStateForCurrentAccount(imported);
     editingPoolId = state.selectedPoolId;
     editingGroupId = state.selectedGroupId;
     saveState();
