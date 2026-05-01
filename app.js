@@ -61,6 +61,12 @@ const elements = {
   editStudentBirthYearInput: document.querySelector("#editStudentBirthYearInput"),
   closeStudentModalButton: document.querySelector("#closeStudentModalButton"),
   cancelStudentEditButton: document.querySelector("#cancelStudentEditButton"),
+  transferStudentModal: document.querySelector("#transferStudentModal"),
+  transferStudentForm: document.querySelector("#transferStudentForm"),
+  transferStudentNameInput: document.querySelector("#transferStudentNameInput"),
+  transferStudentTargetSelect: document.querySelector("#transferStudentTargetSelect"),
+  closeTransferStudentModalButton: document.querySelector("#closeTransferStudentModalButton"),
+  cancelTransferStudentButton: document.querySelector("#cancelTransferStudentButton"),
   stats: document.querySelector("#stats"),
   journalTable: document.querySelector("#journalTable"),
   emptyState: document.querySelector("#emptyState"),
@@ -70,6 +76,7 @@ let state = loadState();
 let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let editingStudentId = null;
+let transferStudentId = null;
 let draggedGroupId = null;
 let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
@@ -385,6 +392,7 @@ function wireEvents() {
   elements.journalTable.addEventListener("click", (event) => {
     const attendanceButton = event.target.closest("[data-student-id][data-date]");
     const editButton = event.target.closest("[data-edit-student-id]");
+    const transferButton = event.target.closest("[data-transfer-student-id]");
     const removeButton = event.target.closest("[data-remove-student-id]");
     const deleteEverywhereButton = event.target.closest("[data-delete-student-everywhere-id]");
 
@@ -395,6 +403,11 @@ function wireEvents() {
 
     if (editButton) {
       openStudentEditor(editButton.dataset.editStudentId);
+      return;
+    }
+
+    if (transferButton) {
+      openStudentTransfer(transferButton.dataset.transferStudentId);
       return;
     }
 
@@ -421,9 +434,29 @@ function wireEvents() {
     }
   });
 
+  elements.transferStudentForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitStudentTransfer();
+  });
+
+  elements.closeTransferStudentModalButton.addEventListener("click", closeStudentTransfer);
+  elements.cancelTransferStudentButton.addEventListener("click", closeStudentTransfer);
+  elements.transferStudentModal.addEventListener("click", (event) => {
+    if (event.target === elements.transferStudentModal) {
+      closeStudentTransfer();
+    }
+  });
+
   document.addEventListener?.("keydown", (event) => {
-    if (event.key === "Escape" && !elements.studentModal.hidden) {
+    if (event.key !== "Escape") return;
+
+    if (!elements.studentModal.hidden) {
       closeStudentEditor();
+      return;
+    }
+
+    if (!elements.transferStudentModal.hidden) {
+      closeStudentTransfer();
     }
   });
 
@@ -491,6 +524,55 @@ function closeStudentEditor() {
   editingStudentId = null;
   elements.studentModal.hidden = true;
   elements.editStudentForm.reset();
+}
+
+function openStudentTransfer(studentId) {
+  const sourceGroup = getSelectedGroup();
+  const sourcePool = getSelectedPool();
+  const student = sourceGroup?.students.find((item) => item.id === studentId);
+  if (!sourceGroup || !student) return;
+
+  const targets = getTransferTargetGroups(sourceGroup.id);
+  if (!targets.length) {
+    window.alert("Нет других групп для переноса. Сначала создайте ещё одну группу.");
+    return;
+  }
+
+  transferStudentId = studentId;
+  elements.transferStudentNameInput.value = `${student.name} (${sourcePool?.name || "Бассейн"} · ${sourceGroup.start})`;
+  elements.transferStudentTargetSelect.innerHTML = targets
+    .map(
+      ({ group, pool }) =>
+        `<option value="${group.id}">${escapeHtml(pool.name)} · ${escapeHtml(group.start)} · ${escapeHtml(formatDays(group.days))}</option>`,
+    )
+    .join("");
+  elements.transferStudentModal.hidden = false;
+  elements.transferStudentTargetSelect.focus();
+}
+
+function closeStudentTransfer() {
+  transferStudentId = null;
+  elements.transferStudentModal.hidden = true;
+  elements.transferStudentForm.reset();
+  elements.transferStudentTargetSelect.innerHTML = "";
+}
+
+function submitStudentTransfer() {
+  const sourceGroup = getSelectedGroup();
+  if (!sourceGroup || !transferStudentId) return;
+
+  const targetGroupId = elements.transferStudentTargetSelect.value;
+  if (!targetGroupId || targetGroupId === sourceGroup.id) return;
+
+  const moved = transferStudentWithHistory(sourceGroup.id, targetGroupId, transferStudentId);
+  if (!moved) {
+    window.alert("Не удалось перенести ученика. Попробуйте снова.");
+    return;
+  }
+
+  closeStudentTransfer();
+  saveState();
+  render();
 }
 
 function saveStudentEdits() {
@@ -1103,6 +1185,7 @@ function renderJournal() {
     <tbody>${rows}</tbody>
   `;
 
+  renderStudentTransferButtons();
   refreshIcons();
 }
 
@@ -1136,6 +1219,27 @@ function renderStats() {
     <span class="stat-pill">+ ${totals.present}</span>
     <span class="stat-pill">- ${totals.absent}</span>
   `;
+}
+
+function renderStudentTransferButtons() {
+  elements.journalTable.querySelectorAll(".student-actions").forEach((actions) => {
+    if (actions.querySelector("[data-transfer-student-id]")) return;
+
+    const removeButton = actions.querySelector("[data-remove-student-id]");
+    if (!removeButton) return;
+
+    const studentId = removeButton.dataset.removeStudentId;
+    if (!studentId) return;
+
+    const transferButton = document.createElement("button");
+    transferButton.className = "icon-button transfer-student";
+    transferButton.type = "button";
+    transferButton.dataset.transferStudentId = studentId;
+    transferButton.setAttribute("aria-label", "Перенести ученика");
+    transferButton.setAttribute("title", "Перенести в другую группу");
+    transferButton.innerHTML = `<i data-lucide="arrow-right-left"></i>`;
+    actions.insertBefore(transferButton, removeButton);
+  });
 }
 
 function setNextAttendance(studentId, date) {
@@ -1222,6 +1326,55 @@ function deleteStudentEverywhere(studentId) {
   renderStats();
   renderGroups();
   refreshIcons();
+}
+
+function getTransferTargetGroups(sourceGroupId) {
+  return state.groups
+    .filter((group) => group.id !== sourceGroupId)
+    .map((group) => ({ group, pool: getPool(group.poolId) }))
+    .filter((item) => item.pool)
+    .sort((left, right) => {
+      const poolNameCompare = left.pool.name.localeCompare(right.pool.name, "ru");
+      if (poolNameCompare !== 0) return poolNameCompare;
+      return left.group.start.localeCompare(right.group.start, "ru");
+    });
+}
+
+function transferStudentWithHistory(sourceGroupId, targetGroupId, studentId) {
+  const sourceGroup = getGroup(sourceGroupId);
+  const targetGroup = getGroup(targetGroupId);
+  if (!sourceGroup || !targetGroup || sourceGroup.id === targetGroup.id) return false;
+
+  const studentIndex = sourceGroup.students.findIndex((student) => student.id === studentId);
+  if (studentIndex === -1) return false;
+
+  const sourceStudent = sourceGroup.students[studentIndex];
+  const nextStudentId = targetGroup.students.some((student) => student.id === sourceStudent.id)
+    ? createId("student")
+    : sourceStudent.id;
+  const movedStudent = nextStudentId === sourceStudent.id ? sourceStudent : { ...sourceStudent, id: nextStudentId };
+
+  sourceGroup.students.splice(studentIndex, 1);
+  targetGroup.students.push(movedStudent);
+
+  Object.keys(sourceGroup.attendance).forEach((date) => {
+    const dayMarks = sourceGroup.attendance[date];
+    const mark = dayMarks[sourceStudent.id];
+    if (!mark) return;
+
+    if (!targetGroup.attendance[date]) {
+      targetGroup.attendance[date] = {};
+    }
+
+    targetGroup.attendance[date][nextStudentId] = mark;
+    delete dayMarks[sourceStudent.id];
+
+    if (!Object.keys(dayMarks).length) {
+      delete sourceGroup.attendance[date];
+    }
+  });
+
+  return true;
 }
 
 function exportCsv() {

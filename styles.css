@@ -158,7 +158,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -813,7 +814,8 @@ legend {
   font-weight: 700;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -824,7 +826,8 @@ input {
   outline: none;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--teal);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
 }
@@ -1092,7 +1095,7 @@ fieldset {
 
 .student-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 114px;
+  grid-template-columns: minmax(0, 1fr) 154px;
   align-items: center;
   gap: 8px;
 }
@@ -1122,6 +1125,7 @@ fieldset {
 }
 
 .edit-student,
+.transfer-student,
 .delete-student-everywhere,
 .remove-student {
   width: 34px;
@@ -1137,6 +1141,15 @@ fieldset {
 
 .edit-student:hover {
   border-color: var(--teal);
+  background: var(--surface-strong);
+}
+
+.transfer-student {
+  color: var(--blue);
+}
+
+.transfer-student:hover {
+  border-color: var(--blue);
   background: var(--surface-strong);
 }
 
