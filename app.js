@@ -114,7 +114,7 @@ let currentUser = null;
 let isHydratingFromCloud = false;
 let syncTimer = null;
 let syncInProgress = false;
-let attendanceDateColumn = "date";
+let attendanceDateColumn = "training_date";
 let syncStatus = "idle";
 
 applyTheme(state.theme);
@@ -610,7 +610,7 @@ async function applySession(session) {
   const nextUserId = currentUser?.id || null;
 
   if (previousUserId !== nextUserId) {
-    attendanceDateColumn = "date";
+    attendanceDateColumn = "training_date";
   }
 
   if (!currentUser) {
@@ -707,7 +707,7 @@ async function loadStateFromSupabase() {
     const attendanceByGroup = new Map();
     (attendance || []).forEach((row) => {
       const groupId = String(row.group_id);
-      const date = row.date || row.session_date;
+      const date = row.training_date || row.date || row.session_date;
       const studentId = String(row.student_id);
       const mark = row.mark || "";
       if (!date || !mark) return;
@@ -853,7 +853,7 @@ async function signOutUser() {
 
 function forceLocalSignOut() {
   currentUser = null;
-  attendanceDateColumn = "date";
+  attendanceDateColumn = "training_date";
 
   Object.keys(localStorage).forEach((key) => {
     if (key.includes("supabase") || key.startsWith("sb-")) {
@@ -1297,7 +1297,7 @@ async function syncStateToSupabase() {
           [dateColumn]: entry_date,
         }));
 
-      const dateColumn = "date";
+      const dateColumn = "training_date";
       const desiredRows = toDbRows(dateColumn);
       const { error } = await supabaseClient
         .from("attendance")
