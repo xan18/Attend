@@ -184,10 +184,45 @@ button:disabled {
 
 .home-view {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
   width: min(1320px, 100%);
   margin: 0 auto;
+}
+
+.home-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-shell .home-grid {
+  margin: 0;
+  padding: 14px;
+}
+
+.home-shell .home-block {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.home-shell .home-sidebar {
+  gap: 10px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+
+.home-shell .pool-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.home-shell .home-quick-attendance {
+  border-top: 1px solid var(--line);
 }
 
 .home-hero,
@@ -747,6 +782,13 @@ button:disabled {
   padding-bottom: 14px;
 }
 
+.home-shell .pool-editor,
+.home-shell .theme-panel,
+.home-shell .pool-browser,
+.home-shell .home-quick-attendance {
+  padding-bottom: 0;
+}
+
 form {
   margin: 0;
 }
@@ -1283,6 +1325,18 @@ fieldset {
     grid-template-columns: 1fr;
   }
 
+  .home-shell .home-grid {
+    padding: 12px;
+  }
+
+  .home-shell .home-sidebar {
+    gap: 8px;
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+  }
+
   .topbar,
   .student-strip {
     align-items: stretch;
@@ -1325,6 +1379,10 @@ fieldset {
 
   .pool-list {
     grid-template-columns: 1fr;
+  }
+
+  .home-shell .home-grid {
+    padding: 10px;
   }
 
   .pool-card-footer {
