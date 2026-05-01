@@ -1521,3 +1521,327 @@ fieldset {
   align-items: center;
   justify-content: space-between;
 }
+
+@media (max-width: 760px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .home-view,
+  .pool-view {
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .home-hero,
+  .pool-header,
+  .topbar,
+  .student-strip {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .home-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .brand h1 {
+    font-size: 1.18rem;
+  }
+
+  .home-summary,
+  .auth-status {
+    justify-content: flex-start;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .auth-status {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .auth-status .muted {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stat-pill {
+    min-height: 30px;
+    font-size: 0.78rem;
+  }
+
+  .home-shell {
+    overflow: visible;
+  }
+
+  .home-shell .home-grid {
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .section-heading,
+  .panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .section-heading.compact {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .section-heading .primary-button,
+  .pool-browser .primary-button {
+    width: 100%;
+  }
+
+  .home-sidebar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-sidebar-button {
+    justify-content: center;
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .home-shell .theme-panel,
+  .home-shell .pool-editor {
+    top: 72px;
+    max-height: calc(100dvh - 92px);
+    overflow: auto;
+  }
+
+  .pool-list,
+  .group-list,
+  .quick-attendance-body {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .pool-item {
+    min-height: 116px;
+    padding: 13px;
+  }
+
+  .pool-name {
+    font-size: 1.05rem;
+  }
+
+  .pool-header {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .pool-title-block h1 {
+    overflow: visible;
+    font-size: 1.25rem;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 42px 74px;
+    width: 100%;
+  }
+
+  .toolbar .secondary-button {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .pool-layout,
+  .journal-page,
+  .pool-rail {
+    gap: 12px;
+  }
+
+  .topbar h2 {
+    font-size: 1.2rem;
+  }
+
+  .stats {
+    justify-content: flex-start;
+  }
+
+  .student-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 116px;
+    gap: 9px;
+  }
+
+  .student-form label,
+  .student-form .student-year-field {
+    min-width: 0;
+  }
+
+  .student-form .primary-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .journal-wrap {
+    min-height: 360px;
+  }
+
+  .journal-scroll,
+  .quick-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .journal-table th:first-child,
+  .student-cell {
+    width: 214px;
+    min-width: 214px;
+    max-width: 214px;
+  }
+
+  .student-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .student-actions {
+    gap: 4px;
+  }
+
+  .edit-student,
+  .transfer-student,
+  .remove-student {
+    width: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .attendance-cell {
+    width: 56px;
+    min-width: 56px;
+    height: 48px;
+  }
+
+  .attendance-button {
+    height: 38px;
+  }
+
+  .quick-group-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .quick-table {
+    min-width: 360px;
+  }
+
+  .quick-table tbody th {
+    min-width: 172px;
+  }
+
+  .quick-table tbody td {
+    width: 132px;
+    min-width: 132px;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 20px);
+    overflow: auto;
+    padding: 14px;
+  }
+
+  .modal-actions,
+  .auth-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions .primary-button,
+  .modal-actions .secondary-button,
+  .modal-actions .danger-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .home-view,
+  .pool-view {
+    padding: 8px;
+  }
+
+  .home-hero,
+  .pool-header,
+  .topbar,
+  .student-strip,
+  .panel,
+  .journal-wrap,
+  .quick-group-panel {
+    border-radius: 8px;
+  }
+
+  .home-sidebar-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .secondary-button,
+  .primary-button,
+  .danger-button {
+    min-width: 0;
+  }
+
+  .day-pills {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+  }
+
+  .toolbar #exportButton {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .student-form {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-table th:first-child,
+  .student-cell {
+    width: 188px;
+    min-width: 188px;
+    max-width: 188px;
+  }
+
+  .attendance-cell {
+    width: 52px;
+    min-width: 52px;
+  }
+
+  .summary-cell,
+  .summary-head {
+    min-width: 74px;
+  }
+}
