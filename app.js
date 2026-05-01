@@ -1,4 +1,9 @@
-const STORAGE_KEY = "swim-attendance-journal-v1";
+const STORAGE_KEY_BASE = "swim-attendance-journal-v1";
+const SUPABASE_CONFIG = window.__SUPABASE_CONFIG || {};
+const supabaseClient =
+  window.supabase && SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey
+    ? window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
+    : null;
 
 const dayOptions = [
   { value: 1, short: "Пн", full: "понедельник" },
@@ -77,6 +82,15 @@ const elements = {
   cancelDeleteStudentButton: document.querySelector("#cancelDeleteStudentButton"),
   deleteStudentFromMonthButton: document.querySelector("#deleteStudentFromMonthButton"),
   deleteStudentAllButton: document.querySelector("#deleteStudentAllButton"),
+  authModal: document.querySelector("#authModal"),
+  authForm: document.querySelector("#authForm"),
+  authEmailInput: document.querySelector("#authEmailInput"),
+  authPasswordInput: document.querySelector("#authPasswordInput"),
+  authMessage: document.querySelector("#authMessage"),
+  authSubmitButton: document.querySelector("#authSubmitButton"),
+  authModeToggleButton: document.querySelector("#authModeToggleButton"),
+  authUserEmail: document.querySelector("#authUserEmail"),
+  signOutButton: document.querySelector("#signOutButton"),
   stats: document.querySelector("#stats"),
   journalTable: document.querySelector("#journalTable"),
   emptyState: document.querySelector("#emptyState"),
@@ -93,6 +107,8 @@ let currentView = "home";
 let selectedDayValues = new Set([1, 3, 5]);
 let selectedQuickGroupId = null;
 let homePopover = null;
+let authMode = "signIn";
+let currentUser = null;
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -109,6 +125,7 @@ if (!state.pools.length) {
 
 wireEvents();
 render();
+initAuth();
 
 function wireEvents() {
   elements.backHomeButton.addEventListener("click", () => {
@@ -529,6 +546,140 @@ function wireEvents() {
     saveState();
     renderThemeOptions();
   });
+
+  elements.authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAuthForm();
+  });
+
+  elements.authModeToggleButton.addEventListener("click", () => {
+    authMode = authMode === "signIn" ? "signUp" : "signIn";
+    renderAuthUi();
+  });
+
+  elements.signOutButton.addEventListener("click", async () => {
+    await signOutUser();
+  });
+}
+
+async function initAuth() {
+  if (!supabaseClient) {
+    setAuthMessage("Не удалось подключиться к Supabase. Проверьте URL и ключ.");
+    openAuthModal();
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    setAuthMessage(error.message);
+    openAuthModal();
+    return;
+  }
+
+  await applySession(data?.session || null);
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    await applySession(session);
+  });
+}
+
+async function applySession(session) {
+  currentUser = session?.user || null;
+
+  if (!currentUser) {
+    openAuthModal();
+    updateAuthBar();
+    return;
+  }
+
+  closeAuthModal();
+  state = loadState();
+  editingPoolId = state.selectedPoolId || null;
+  editingGroupId = state.selectedGroupId || null;
+
+  if (!state.pools.length) {
+    state = createSeedState();
+    editingPoolId = state.selectedPoolId;
+    editingGroupId = state.selectedGroupId;
+    saveState();
+  }
+
+  updateAuthBar();
+  render();
+}
+
+function getStorageKey() {
+  if (!currentUser?.id) return `${STORAGE_KEY_BASE}:guest`;
+  return `${STORAGE_KEY_BASE}:${currentUser.id}`;
+}
+
+function openAuthModal() {
+  renderAuthUi();
+  elements.authModal.hidden = false;
+}
+
+function closeAuthModal() {
+  elements.authModal.hidden = true;
+}
+
+function updateAuthBar() {
+  elements.authUserEmail.textContent = currentUser?.email || "";
+  const hasUser = Boolean(currentUser);
+  elements.signOutButton.hidden = !hasUser;
+  elements.authUserEmail.hidden = !hasUser;
+}
+
+function setAuthMessage(text) {
+  elements.authMessage.textContent = text;
+}
+
+function renderAuthUi() {
+  const isSignIn = authMode === "signIn";
+  elements.authModal.querySelector("#authModalTitle").textContent = isSignIn ? "Вход в журнал" : "Регистрация";
+  elements.authSubmitButton.innerHTML = isSignIn
+    ? '<i data-lucide="log-in"></i>Войти'
+    : '<i data-lucide="user-plus"></i>Создать аккаунт';
+  elements.authModeToggleButton.textContent = isSignIn
+    ? "Нет аккаунта? Регистрация"
+    : "Уже есть аккаунт? Войти";
+  setAuthMessage(isSignIn ? "Войдите или зарегистрируйтесь, чтобы продолжить." : "Создайте аккаунт для доступа к журналу.");
+  refreshIcons();
+}
+
+async function submitAuthForm() {
+  if (!supabaseClient) return;
+
+  const email = elements.authEmailInput.value.trim();
+  const password = elements.authPasswordInput.value.trim();
+  if (!email || !password) return;
+
+  setAuthMessage("Проверяем...");
+  const result =
+    authMode === "signIn"
+      ? await supabaseClient.auth.signInWithPassword({ email, password })
+      : await supabaseClient.auth.signUp({ email, password });
+
+  if (result.error) {
+    setAuthMessage(result.error.message);
+    return;
+  }
+
+  if (authMode === "signUp" && !result.data.session) {
+    setAuthMessage("Аккаунт создан. Теперь войдите с этим email и паролем.");
+    authMode = "signIn";
+    renderAuthUi();
+    return;
+  }
+
+  elements.authPasswordInput.value = "";
+  setAuthMessage("Успешно. Загружаем журнал...");
+}
+
+async function signOutUser() {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    window.alert(error.message);
+  }
 }
 
 function deleteEditingPool() {
@@ -705,7 +856,7 @@ function loadState() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const saved = JSON.parse(localStorage.getItem(getStorageKey()));
     if (!saved) return fallback;
 
     const theme = themeChoices.some((choice) => choice.value === saved.theme) ? saved.theme : fallback.theme;
@@ -804,7 +955,7 @@ function createSeedState() {
 function saveState() {
   state.month = elements.monthInput.value || state.month;
   state.homeDate = normalizeIsoDate(elements.homeDateInput.value) || state.homeDate || toIsoDate(new Date());
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(getStorageKey(), JSON.stringify(state));
 }
 
 function render() {

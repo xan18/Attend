@@ -1505,3 +1505,19 @@ fieldset {
     max-width: 260px;
   }
 }
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.auth-card {
+  width: min(460px, 94vw);
+}
+
+.auth-actions {
+  align-items: center;
+  justify-content: space-between;
+}
