@@ -36,6 +36,7 @@
 
           <div class="home-summary" id="homeSummary"></div>
           <div class="auth-status">
+            <span class="muted" id="syncStatus">Синхронизация: —</span>
             <span class="muted" id="authUserEmail"></span>
             <button class="secondary-button" id="signOutButton" type="button">
               <i data-lucide="log-out"></i>
@@ -70,6 +71,15 @@
                 <i data-lucide="settings-2"></i>
                 Настройки
               </button>
+              <button class="secondary-button home-sidebar-button" id="exportBackupButton" type="button">
+                <i data-lucide="download"></i>
+                Резерв
+              </button>
+              <button class="secondary-button home-sidebar-button" id="importBackupButton" type="button">
+                <i data-lucide="upload"></i>
+                Восстановить
+              </button>
+              <input id="importBackupInput" type="file" accept="application/json" hidden />
             </div>
             <section class="theme-panel home-block">
               <div class="section-heading compact">

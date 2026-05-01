@@ -88,7 +88,11 @@ const elements = {
   authSubmitButton: document.querySelector("#authSubmitButton"),
   authModeToggleButton: document.querySelector("#authModeToggleButton"),
   authUserEmail: document.querySelector("#authUserEmail"),
+  syncStatus: document.querySelector("#syncStatus"),
   signOutButton: document.querySelector("#signOutButton"),
+  exportBackupButton: document.querySelector("#exportBackupButton"),
+  importBackupButton: document.querySelector("#importBackupButton"),
+  importBackupInput: document.querySelector("#importBackupInput"),
   stats: document.querySelector("#stats"),
   journalTable: document.querySelector("#journalTable"),
   emptyState: document.querySelector("#emptyState"),
@@ -112,6 +116,7 @@ let syncTimer = null;
 let syncInProgress = false;
 let attendanceDateColumn = null;
 let attendanceDateColumnChecked = false;
+let syncStatus = "idle";
 
 applyTheme(state.theme);
 elements.monthInput.value = state.month || toMonthValue(new Date());
@@ -572,6 +577,12 @@ function wireEvents() {
   elements.signOutButton.addEventListener("click", async () => {
     await signOutUser();
   });
+
+  elements.exportBackupButton.addEventListener("click", exportBackupJson);
+  elements.importBackupButton.addEventListener("click", () => {
+    elements.importBackupInput.click();
+  });
+  elements.importBackupInput.addEventListener("change", importBackupJson);
 }
 
 async function initAuth() {
@@ -782,6 +793,24 @@ function updateAuthBar() {
   const hasUser = Boolean(currentUser);
   elements.signOutButton.hidden = !hasUser;
   elements.authUserEmail.hidden = !hasUser;
+  renderSyncStatus();
+}
+
+function setSyncStatus(nextStatus) {
+  syncStatus = nextStatus;
+  renderSyncStatus();
+}
+
+function renderSyncStatus() {
+  const labelByStatus = {
+    idle: "Синхронизация: —",
+    syncing: "Синхронизация: сохраняем...",
+    ok: "Синхронизация: сохранено",
+    error: "Синхронизация: ошибка",
+  };
+  if (elements.syncStatus) {
+    elements.syncStatus.textContent = labelByStatus[syncStatus] || labelByStatus.idle;
+  }
 }
 
 function setAuthMessage(text) {
@@ -1119,6 +1148,7 @@ function saveState() {
 
 function scheduleSupabaseSync() {
   if (isHydratingFromCloud || !supabaseClient || !currentUser?.id) return;
+  setSyncStatus("syncing");
 
   if (syncTimer) {
     clearTimeout(syncTimer);
@@ -1259,25 +1289,9 @@ async function syncStateToSupabase() {
       });
     });
 
-    await supabaseClient.from("attendance").delete().eq("user_id", userId);
-    await supabaseClient.from("students").delete().eq("user_id", userId);
-    await supabaseClient.from("groups").delete().eq("user_id", userId);
-    await supabaseClient.from("pools").delete().eq("user_id", userId);
-
-    if (poolRows.length) {
-      const { error } = await supabaseClient.from("pools").insert(poolRows);
-      if (error) throw error;
-    }
-
-    if (groupRows.length) {
-      const { error } = await supabaseClient.from("groups").insert(groupRows);
-      if (error) throw error;
-    }
-
-    if (studentRows.length) {
-      const { error } = await supabaseClient.from("students").insert(studentRows);
-      if (error) throw error;
-    }
+    await syncEntityTable("pools", poolRows);
+    await syncEntityTable("groups", groupRows);
+    await syncEntityTable("students", studentRows);
 
     if (attendanceRows.length) {
       const toDbRows = (dateColumn) =>
@@ -1287,7 +1301,10 @@ async function syncStateToSupabase() {
         }));
 
       let dateColumn = attendanceDateColumn || "date";
-      let { error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn));
+      let desiredRows = toDbRows(dateColumn);
+      let { error } = await supabaseClient
+        .from("attendance")
+        .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` });
       const errorText = String(error?.message || "").toLowerCase();
       const missingSessionDate =
         errorText.includes("session_date") &&
@@ -1299,19 +1316,27 @@ async function syncStateToSupabase() {
       if (error && missingSessionDate) {
         dateColumn = "date";
         attendanceDateColumn = "date";
-        ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
+        desiredRows = toDbRows(dateColumn);
+        ({ error } = await supabaseClient
+          .from("attendance")
+          .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` }));
       } else if (error && missingDateColumn) {
         dateColumn = "session_date";
         attendanceDateColumn = "session_date";
-        ({ error } = await supabaseClient.from("attendance").insert(toDbRows(dateColumn)));
+        desiredRows = toDbRows(dateColumn);
+        ({ error } = await supabaseClient
+          .from("attendance")
+          .upsert(desiredRows, { onConflict: `user_id,group_id,student_id,${dateColumn}` }));
       } else {
         attendanceDateColumn = dateColumn;
       }
 
       if (error) throw error;
+      await pruneRemovedAttendance(dateColumn, desiredRows);
     }
 
     localStorage.setItem(getStorageKey(), JSON.stringify(state));
+    setSyncStatus("ok");
   } catch (error) {
     const errorText = String(error?.message || "").toLowerCase();
     const isDateColumnCacheError =
@@ -1324,8 +1349,106 @@ async function syncStateToSupabase() {
     } else {
       window.alert(`Ошибка синхронизации с Supabase: ${error.message}`);
     }
+    setSyncStatus("error");
   } finally {
     syncInProgress = false;
+  }
+}
+
+async function syncEntityTable(tableName, desiredRows) {
+  const userId = currentUser.id;
+  const desiredIds = desiredRows.map((row) => row.id);
+
+  if (desiredRows.length) {
+    const { error } = await supabaseClient.from(tableName).upsert(desiredRows, { onConflict: "id" });
+    if (error) throw error;
+  }
+
+  const { data: existingRows, error: existingError } = await supabaseClient
+    .from(tableName)
+    .select("id")
+    .eq("user_id", userId);
+  if (existingError) throw existingError;
+
+  const existingIds = (existingRows || []).map((row) => row.id);
+  const toDelete = existingIds.filter((id) => !desiredIds.includes(id));
+  if (toDelete.length) {
+    const { error } = await supabaseClient.from(tableName).delete().in("id", toDelete);
+    if (error) throw error;
+  }
+}
+
+async function pruneRemovedAttendance(dateColumn, desiredRows) {
+  const userId = currentUser.id;
+  const { data: existingRows, error: existingError } = await supabaseClient
+    .from("attendance")
+    .select(`group_id,student_id,${dateColumn}`)
+    .eq("user_id", userId);
+  if (existingError) throw existingError;
+
+  const desiredKeySet = new Set(
+    desiredRows.map((row) => `${row.group_id}|${row.student_id}|${row[dateColumn]}`),
+  );
+
+  for (const row of existingRows || []) {
+    const key = `${row.group_id}|${row.student_id}|${row[dateColumn]}`;
+    if (desiredKeySet.has(key)) continue;
+    const { error } = await supabaseClient
+      .from("attendance")
+      .delete()
+      .eq("user_id", userId)
+      .eq("group_id", row.group_id)
+      .eq("student_id", row.student_id)
+      .eq(dateColumn, row[dateColumn]);
+    if (error) throw error;
+  }
+}
+
+function exportBackupJson() {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    state,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `attendance-backup-${toIsoDate(new Date())}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importBackupJson(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const imported = parsed?.state;
+    if (!imported || !Array.isArray(imported.pools) || !Array.isArray(imported.groups)) {
+      window.alert("Некорректный файл резервной копии.");
+      return;
+    }
+
+    state = {
+      pools: imported.pools,
+      groups: imported.groups,
+      selectedPoolId: imported.selectedPoolId || imported.pools[0]?.id || null,
+      selectedGroupId: imported.selectedGroupId || imported.groups[0]?.id || null,
+      month: imported.month || toMonthValue(new Date()),
+      homeDate: normalizeIsoDate(imported.homeDate) || toIsoDate(new Date()),
+      theme: "navy",
+    };
+    editingPoolId = state.selectedPoolId;
+    editingGroupId = state.selectedGroupId;
+    saveState();
+    render();
+    window.alert("Резервная копия восстановлена.");
+  } catch {
+    window.alert("Не удалось прочитать файл резервной копии.");
   }
 }
 
