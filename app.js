@@ -289,6 +289,7 @@ function wireEvents() {
 
     editingGroupId = null;
     selectedDayValues = new Set([1, 3, 5]);
+    renderGroupList();
     renderGroupForm();
     elements.groupStartInput.focus();
   });
@@ -1702,7 +1703,7 @@ function renderGroups() {
 
   elements.groupList.innerHTML = groups
         .map((group) => {
-      const active = group.id === state.selectedGroupId ? " active" : "";
+      const active = editingGroupId && group.id === state.selectedGroupId ? " active" : "";
       const activeStudentCount = getVisibleStudentsForMonth(group, monthValue).length;
       return `
         <button class="group-item${active}" type="button" draggable="true" data-group-id="${group.id}">
