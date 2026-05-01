@@ -19,10 +19,7 @@ const dayOptions = [
 const attendanceFlow = ["", "+", "-"];
 
 const themeChoices = [
-  { value: "white", label: "Белая", swatch: "#ffffff" },
-  { value: "amoled", label: "Черная", swatch: "#000000" },
-  { value: "navy", label: "Темносиняя", swatch: "#172033" },
-  { value: "gray", label: "Серая", swatch: "#dedede" },
+  { value: "navy", label: "Синяя", swatch: "#172033" },
 ];
 
 const elements = {
@@ -744,7 +741,7 @@ async function loadStateFromSupabase() {
       selectedGroupId,
       month: state.month || fallbackMonth,
       homeDate: state.homeDate || fallbackDate,
-      theme: state.theme || "white",
+      theme: state.theme || "navy",
     };
   } catch (error) {
     window.alert(`Ошибка загрузки данных из Supabase: ${error.message}`);
@@ -1011,7 +1008,7 @@ function loadState() {
     selectedGroupId: null,
     month: toMonthValue(new Date()),
     homeDate: toIsoDate(new Date()),
-    theme: "white",
+    theme: "navy",
   };
 
   try {
@@ -1109,7 +1106,7 @@ function createSeedState() {
     selectedGroupId: groupId,
     month: toMonthValue(new Date()),
     homeDate: toIsoDate(new Date()),
-    theme: state.theme || "white",
+    theme: state.theme || "navy",
   };
 }
 
@@ -2133,7 +2130,7 @@ function isStudentVisibleInMonth(student, monthValue) {
 }
 
 function applyTheme(theme) {
-  const normalized = themeChoices.some((choice) => choice.value === theme) ? theme : "white";
+  const normalized = themeChoices.some((choice) => choice.value === theme) ? theme : "navy";
   state.theme = normalized;
   document.documentElement.dataset.theme = normalized;
 }

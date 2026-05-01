@@ -7,9 +7,9 @@
     <script>
       try {
         const saved = JSON.parse(localStorage.getItem("swim-attendance-journal-v1"));
-        document.documentElement.dataset.theme = saved?.theme || "white";
+        document.documentElement.dataset.theme = saved?.theme || "navy";
       } catch {
-        document.documentElement.dataset.theme = "white";
+        document.documentElement.dataset.theme = "navy";
       }
       window.__SUPABASE_CONFIG = {
         url: "https://amkdczlrenfbvwrxgiqn.supabase.co",
