@@ -460,7 +460,8 @@ button:disabled {
 .quick-date-field {
   display: grid;
   gap: 7px;
-  width: 180px;
+  width: 248px;
+  min-width: 248px;
 }
 
 .quick-date-field span {
@@ -471,6 +472,10 @@ button:disabled {
 
 .quick-date-field input {
   min-height: 40px;
+}
+
+.quick-date-controls input[type="date"] {
+  min-width: 150px;
 }
 
 .quick-date-controls {
