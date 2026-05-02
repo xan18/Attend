@@ -61,6 +61,7 @@ const elements = {
   prevMonthButton: document.querySelector("#prevMonthButton"),
   nextMonthButton: document.querySelector("#nextMonthButton"),
   exportButton: document.querySelector("#exportButton"),
+  exportPoolButton: document.querySelector("#exportPoolButton"),
   studentForm: document.querySelector("#studentForm"),
   studentNameInput: document.querySelector("#studentNameInput"),
   studentBirthYearInput: document.querySelector("#studentBirthYearInput"),
@@ -587,6 +588,7 @@ function wireEvents() {
   });
 
   elements.exportButton.addEventListener("click", exportCsv);
+  elements.exportPoolButton.addEventListener("click", exportPoolCsv);
 
   document.addEventListener("click", (event) => {
     if (!homePopover || currentView !== "home") return;
@@ -1968,6 +1970,7 @@ function renderActiveGroup() {
   elements.studentBirthYearInput.disabled = !hasGroup;
   elements.studentForm.querySelector("button").disabled = !hasGroup;
   elements.exportButton.disabled = !hasGroup;
+  elements.exportPoolButton.disabled = !getSelectedPool();
   elements.prevMonthButton.disabled = !hasGroup;
   elements.nextMonthButton.disabled = !hasGroup;
   elements.monthInput.disabled = !hasGroup;
@@ -2336,6 +2339,64 @@ function exportCsv() {
   const link = document.createElement("a");
   link.href = url;
   link.download = `${pool?.name || "attendance"}-${group.start}-${elements.monthInput.value}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPoolCsv() {
+  const pool = getSelectedPool();
+  if (!pool) return;
+
+  const monthValue = elements.monthInput.value || toMonthValue(new Date());
+  const poolGroups = getGroupsForSelectedPool();
+  if (!poolGroups.length) {
+    window.alert("В этом бассейне нет групп для экспорта.");
+    return;
+  }
+
+  const rows = [
+    ["Бассейн", pool.name],
+    ["Месяц", monthValue],
+    [],
+  ];
+
+  poolGroups.forEach((group, index) => {
+    const dates = getTrainingDates(group, monthValue);
+    const visibleStudents = getVisibleStudentsForMonth(group, monthValue);
+    const groupLabel = `${pool.name} · ${group.start}`;
+
+    rows.push(["Группа", groupLabel]);
+    rows.push(["Дни", formatDays(group.days)]);
+
+    if (!dates.length) {
+      rows.push(["Нет тренировочных дат в этом месяце"]);
+    } else if (!visibleStudents.length) {
+      rows.push(["Нет активных учеников в этом месяце"]);
+    } else {
+      rows.push(["Ученик", "Год рождения", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"]);
+
+      visibleStudents.forEach((student) => {
+        const summary = getStudentSummary(group, student.id, dates);
+        rows.push([
+          student.name,
+          student.birthYear || "",
+          ...dates.map((date) => group.attendance[date.iso]?.[student.id] || ""),
+          `${summary.present}/${summary.total}`,
+        ]);
+      });
+    }
+
+    if (index < poolGroups.length - 1) {
+      rows.push([]);
+    }
+  });
+
+  const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${pool.name}-all-groups-${monthValue}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
