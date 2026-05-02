@@ -1645,6 +1645,37 @@ fieldset {
     font-size: 0.78rem;
   }
 
+  .icon-button,
+  .primary-button,
+  .danger-button,
+  .secondary-button {
+    min-height: 36px;
+    gap: 6px;
+    border-radius: 7px;
+    font-size: 0.9rem;
+  }
+
+  .icon-button {
+    width: 36px;
+    min-width: 36px;
+  }
+
+  .primary-button,
+  .danger-button,
+  .secondary-button {
+    min-width: 0;
+    padding: 0 10px;
+  }
+
+  .icon-button svg,
+  .primary-button svg,
+  .danger-button svg,
+  .secondary-button svg {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+
   .home-shell {
     overflow: visible;
   }
@@ -1669,17 +1700,21 @@ fieldset {
 
   .section-heading .primary-button,
   .pool-browser .primary-button {
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
   }
 
   .home-sidebar-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .home-sidebar-button {
     justify-content: center;
     min-width: 0;
-    padding: 0 10px;
+    min-height: 36px;
+    padding: 0 8px;
+    font-size: 0.88rem;
   }
 
   .home-shell .theme-panel,
@@ -1719,13 +1754,14 @@ fieldset {
 
   .toolbar {
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 42px 74px 122px;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 66px 104px;
     width: 100%;
+    gap: 6px;
   }
 
   .toolbar .secondary-button {
     min-width: 0;
-    padding: 0 8px;
+    padding: 0 7px;
   }
 
   .pool-layout,
@@ -1745,7 +1781,7 @@ fieldset {
   .student-form {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 116px;
-    gap: 9px;
+    gap: 7px;
   }
 
   .student-form label,
@@ -1755,7 +1791,8 @@ fieldset {
 
   .student-form .primary-button {
     grid-column: 1 / -1;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
   }
 
   .journal-wrap {
@@ -1780,31 +1817,72 @@ fieldset {
   }
 
   .student-actions {
-    gap: 4px;
+    gap: 3px;
   }
 
   .edit-student,
   .transfer-student,
   .remove-student {
-    width: 32px;
-    min-width: 32px;
-    min-height: 32px;
+    width: 30px;
+    min-width: 30px;
+    min-height: 30px;
   }
 
   .attendance-cell {
-    width: 60px;
-    min-width: 60px;
-    height: 52px;
+    width: 54px;
+    min-width: 54px;
+    height: 46px;
+    padding: 5px;
   }
 
   .attendance-button {
-    height: 40px;
-    font-size: 1.18rem;
+    height: 34px;
+    font-size: 1.08rem;
   }
 
   .quick-group-tabs {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .quick-date-field input,
+  .quick-date-shift {
+    min-height: 36px;
+  }
+
+  .quick-date-controls {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 5px;
+  }
+
+  .quick-date-shift {
+    width: 34px;
+    min-width: 34px;
+  }
+
+  .quick-group-header {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .quick-group-stats {
+    gap: 6px;
+  }
+
+  .quick-bulk-mark-button {
+    min-height: 32px;
+    padding: 0 9px;
+  }
+
+  .quick-add-student-form {
+    gap: 7px;
+    padding: 9px 10px;
+  }
+
+  .quick-group-tab {
+    min-height: 44px;
+    padding: 7px 9px;
   }
 
   .quick-table {
@@ -1816,8 +1894,19 @@ fieldset {
   }
 
   .quick-table tbody td {
-    width: 132px;
-    min-width: 132px;
+    width: 124px;
+    min-width: 124px;
+    padding: 5px;
+  }
+
+  .quick-mark-controls {
+    gap: 4px;
+  }
+
+  .quick-mark-button {
+    min-height: 30px;
+    border-radius: 7px;
+    font-size: 0.95rem;
   }
 
   .modal-backdrop {
@@ -1869,14 +1958,30 @@ fieldset {
   .primary-button,
   .danger-button {
     min-width: 0;
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 0.86rem;
+  }
+
+  .icon-button {
+    width: 34px;
+    min-width: 34px;
+    min-height: 34px;
   }
 
   .day-pills {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .day-pill {
+    min-height: 34px;
+    font-size: 0.9rem;
   }
 
   .toolbar {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 5px;
   }
 
   .toolbar #exportButton,
@@ -1897,12 +2002,41 @@ fieldset {
   }
 
   .attendance-cell {
-    width: 58px;
-    min-width: 58px;
+    width: 52px;
+    min-width: 52px;
+    height: 44px;
+  }
+
+  .attendance-button {
+    height: 32px;
+    font-size: 1rem;
   }
 
   .summary-cell,
   .summary-head {
     min-width: 86px;
+  }
+
+  .quick-date-controls {
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+  }
+
+  .quick-date-field input,
+  .quick-date-shift {
+    min-height: 34px;
+  }
+
+  .quick-date-shift {
+    width: 32px;
+    min-width: 32px;
+  }
+
+  .quick-table tbody td {
+    width: 112px;
+    min-width: 112px;
+  }
+
+  .quick-mark-button {
+    min-height: 28px;
   }
 }
