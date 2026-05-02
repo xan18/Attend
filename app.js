@@ -274,6 +274,25 @@ function wireEvents() {
   });
 
   elements.homeGroupPanel.addEventListener("click", (event) => {
+    const bulkMarkButton = event.target.closest("[data-quick-mark-all-group-id]");
+    if (bulkMarkButton) {
+      const groupId = bulkMarkButton.dataset.quickMarkAllGroupId;
+      const date = getHomeDateValue();
+      const changed = setQuickGroupAttendanceCycle(groupId, date);
+      if (!changed) return;
+
+      renderHomeQuickAttendance();
+      if (
+        currentView === "pool" &&
+        state.selectedGroupId === groupId &&
+        elements.monthInput.value === date.slice(0, 7)
+      ) {
+        renderJournal();
+        renderStats();
+      }
+      return;
+    }
+
     const markButton = event.target.closest("[data-quick-mark-group-id][data-quick-mark-student-id][data-quick-mark-value]");
     if (!markButton) return;
 
@@ -1772,6 +1791,7 @@ function renderHomeQuickAttendance() {
         <p>${formatFullDateLabel(selectedDate)} · ${formatDays(activeGroup.days)}</p>
       </div>
       <div class="quick-group-stats">
+        <button class="secondary-button quick-bulk-mark-button" type="button" data-quick-mark-all-group-id="${activeGroup.id}">Отметить все</button>
         <span class="stat-pill">+ ${totals.present}</span>
         <span class="stat-pill">- ${totals.absent}</span>
         <span class="stat-pill">Пусто ${totals.empty}</span>
@@ -2138,6 +2158,40 @@ function setAttendanceValue(groupId, studentId, date, nextValue, monthValueOverr
   } else {
     if (!group.attendance[date]) return false;
     delete group.attendance[date][studentId];
+    if (!Object.keys(group.attendance[date]).length) {
+      delete group.attendance[date];
+    }
+  }
+
+  saveState();
+  return true;
+}
+
+function setQuickGroupAttendanceCycle(groupId, date) {
+  const group = getGroup(groupId);
+  if (!group) return false;
+
+  const monthValue = date.slice(0, 7);
+  const visibleStudents = getVisibleStudentsForMonth(group, monthValue);
+  if (!visibleStudents.length) return false;
+
+  const dayMarks = group.attendance[date] || {};
+  const areAllPresent = visibleStudents.every((student) => dayMarks[student.id] === "+");
+  const areAllAbsent = visibleStudents.every((student) => dayMarks[student.id] === "-");
+  const nextValue = areAllPresent ? "-" : areAllAbsent ? "" : "+";
+
+  if (nextValue) {
+    if (!group.attendance[date]) {
+      group.attendance[date] = {};
+    }
+    visibleStudents.forEach((student) => {
+      group.attendance[date][student.id] = nextValue;
+    });
+  } else if (group.attendance[date]) {
+    visibleStudents.forEach((student) => {
+      delete group.attendance[date][student.id];
+    });
+
     if (!Object.keys(group.attendance[date]).length) {
       delete group.attendance[date];
     }
