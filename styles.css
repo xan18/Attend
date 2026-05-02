@@ -677,6 +677,20 @@ button:disabled {
   font-weight: 500;
 }
 
+.quick-student-actions {
+  display: inline-flex;
+  margin-top: 6px;
+}
+
+.quick-add-student-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px auto;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
 .quick-mark-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1457,6 +1471,10 @@ fieldset {
   .quick-group-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .quick-add-student-form {
+    grid-template-columns: 1fr;
   }
 
   .student-form {

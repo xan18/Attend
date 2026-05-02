@@ -105,6 +105,7 @@ let state = loadState();
 let editingPoolId = state.selectedPoolId || null;
 let editingGroupId = state.selectedGroupId || null;
 let editingStudentId = null;
+let editingStudentGroupId = null;
 let transferStudentId = null;
 let deleteStudentId = null;
 let draggedGroupId = null;
@@ -275,6 +276,15 @@ function wireEvents() {
   });
 
   elements.homeGroupPanel.addEventListener("click", (event) => {
+    const quickEditStudentButton = event.target.closest("[data-quick-edit-student-id][data-quick-edit-group-id]");
+    if (quickEditStudentButton) {
+      openStudentEditorForGroup(
+        quickEditStudentButton.dataset.quickEditGroupId,
+        quickEditStudentButton.dataset.quickEditStudentId,
+      );
+      return;
+    }
+
     const bulkMarkButton = event.target.closest("[data-quick-mark-all-group-id]");
     if (bulkMarkButton) {
       const groupId = bulkMarkButton.dataset.quickMarkAllGroupId;
@@ -317,6 +327,49 @@ function wireEvents() {
       renderJournal();
       renderStats();
     }
+  });
+
+  elements.homeGroupPanel.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-quick-add-form][data-quick-add-group-id]");
+    if (!form) return;
+    event.preventDefault();
+
+    const groupId = form.dataset.quickAddGroupId;
+    const nameInput = form.querySelector("[data-quick-add-name]");
+    const birthYearInput = form.querySelector("[data-quick-add-birth-year]");
+    const name = nameInput?.value.trim() || "";
+    const birthYear = normalizeBirthYear(birthYearInput?.value || "");
+
+    if (!name) {
+      window.alert("Укажите имя ученика.");
+      return;
+    }
+
+    if (birthYear === null) {
+      window.alert("Укажите корректный год рождения.");
+      return;
+    }
+
+    const monthValue = getHomeDateValue().slice(0, 7);
+    const changed = addStudentToGroup(groupId, name, birthYear, monthValue);
+    if (!changed) return;
+
+    if (nameInput) nameInput.value = "";
+    if (birthYearInput) birthYearInput.value = "";
+
+    renderHomeSummary();
+    renderPools();
+    renderHomeQuickAttendance();
+    if (
+      currentView === "pool" &&
+      state.selectedGroupId === groupId &&
+      elements.monthInput.value === monthValue
+    ) {
+      renderJournal();
+      renderStats();
+      renderGroups();
+    }
+    refreshIcons();
   });
 
   elements.newGroupButton.addEventListener("click", () => {
@@ -1037,6 +1090,7 @@ function openStudentEditor(studentId) {
   const student = group?.students.find((item) => item.id === studentId);
   if (!student) return;
 
+  editingStudentGroupId = group.id;
   editingStudentId = studentId;
   elements.editStudentNameInput.value = student.name;
   elements.editStudentBirthYearInput.value = student.birthYear || "";
@@ -1044,8 +1098,23 @@ function openStudentEditor(studentId) {
   elements.editStudentNameInput.focus();
 }
 
+function openStudentEditorForGroup(groupId, studentId) {
+  const group = getGroup(groupId);
+  const student = group?.students.find((item) => item.id === studentId);
+  if (!group || !student) return;
+
+  const previousGroupId = state.selectedGroupId;
+  const previousEditingGroupId = editingGroupId;
+  state.selectedGroupId = groupId;
+  editingGroupId = groupId;
+  openStudentEditor(studentId);
+  state.selectedGroupId = previousGroupId;
+  editingGroupId = previousEditingGroupId;
+}
+
 function closeStudentEditor() {
   editingStudentId = null;
+  editingStudentGroupId = null;
   elements.studentModal.hidden = true;
   elements.editStudentForm.reset();
 }
@@ -1117,7 +1186,7 @@ function submitStudentTransfer() {
 }
 
 function saveStudentEdits() {
-  const group = getSelectedGroup();
+  const group = editingStudentGroupId ? getGroup(editingStudentGroupId) : getSelectedGroup();
   const student = group?.students.find((item) => item.id === editingStudentId);
   if (!student) return;
 
@@ -1139,6 +1208,25 @@ function saveStudentEdits() {
   saveState();
   closeStudentEditor();
   renderJournal();
+  renderHomeSummary();
+  renderPools();
+  renderHomeQuickAttendance();
+  renderStats();
+}
+
+function addStudentToGroup(groupId, name, birthYear, activeFromMonth) {
+  const group = getGroup(groupId);
+  if (!group) return false;
+
+  group.students.push({
+    id: createId("student"),
+    name,
+    birthYear,
+    activeFromMonth,
+  });
+
+  saveState();
+  return true;
 }
 
 function loadState() {
@@ -1760,10 +1848,24 @@ function renderHomeQuickAttendance() {
 
   if (!visibleStudents.length) {
     elements.homeGroupPanel.innerHTML = `
+      <div class="quick-group-header">
+        <div>
+          <h3>${escapeHtml(activePool?.name || "Бассейн")} · ${escapeHtml(activeGroup.start)}</h3>
+          <p>${formatFullDateLabel(selectedDate)} · ${formatDays(activeGroup.days)}</p>
+        </div>
+      </div>
+      <form class="quick-add-student-form" data-quick-add-form data-quick-add-group-id="${activeGroup.id}">
+        <input type="text" placeholder="Новый ученик" maxlength="80" data-quick-add-name />
+        <input type="number" placeholder="Год рождения" min="1900" max="${new Date().getFullYear()}" data-quick-add-birth-year />
+        <button class="primary-button" type="submit">
+          <i data-lucide="user-plus"></i>
+          Добавить
+        </button>
+      </form>
       <div class="quick-empty-state">
         <i data-lucide="users"></i>
-        <h3>${escapeHtml(activePool?.name || "Бассейн")} · ${escapeHtml(activeGroup.start)}</h3>
-        <p>На ${formatFullDateLabel(selectedDate)} в этой группе нет активных учеников.</p>
+        <h3>Нет учеников</h3>
+        <p>Добавьте первого ученика в эту группу.</p>
       </div>
     `;
     refreshIcons();
@@ -1779,6 +1881,11 @@ function renderHomeQuickAttendance() {
           <th scope="row">
             <span class="quick-student-name">${escapeHtml(student.name)}</span>
             <span class="quick-student-meta">${birthYear}</span>
+            <span class="quick-student-actions">
+              <button class="icon-button edit-student" type="button" data-quick-edit-group-id="${activeGroup.id}" data-quick-edit-student-id="${student.id}" aria-label="${escapeHtml(student.name)}: редактировать" title="Редактировать">
+                <i data-lucide="pencil"></i>
+              </button>
+            </span>
           </th>
           <td>
             <div class="quick-mark-controls">
@@ -1805,6 +1912,14 @@ function renderHomeQuickAttendance() {
         <span class="stat-pill">Пусто ${totals.empty}</span>
       </div>
     </div>
+    <form class="quick-add-student-form" data-quick-add-form data-quick-add-group-id="${activeGroup.id}">
+      <input type="text" placeholder="Новый ученик" maxlength="80" data-quick-add-name />
+      <input type="number" placeholder="Год рождения" min="1900" max="${new Date().getFullYear()}" data-quick-add-birth-year />
+      <button class="primary-button" type="submit">
+        <i data-lucide="user-plus"></i>
+        Добавить
+      </button>
+    </form>
     <div class="quick-table-wrap">
       <table class="quick-table">
         <thead>
