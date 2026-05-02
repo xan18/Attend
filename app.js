@@ -587,8 +587,8 @@ function wireEvents() {
     }
   });
 
-  elements.exportButton.addEventListener("click", exportCsv);
-  elements.exportPoolButton.addEventListener("click", exportPoolCsv);
+  elements.exportButton.addEventListener("click", exportPoolExcel);
+  elements.exportPoolButton.addEventListener("click", exportPoolPdf);
 
   document.addEventListener("click", (event) => {
     if (!homePopover || currentView !== "home") return;
@@ -1969,7 +1969,7 @@ function renderActiveGroup() {
   elements.studentNameInput.disabled = !hasGroup;
   elements.studentBirthYearInput.disabled = !hasGroup;
   elements.studentForm.querySelector("button").disabled = !hasGroup;
-  elements.exportButton.disabled = !hasGroup;
+  elements.exportButton.disabled = !getSelectedPool();
   elements.exportPoolButton.disabled = !getSelectedPool();
   elements.prevMonthButton.disabled = !hasGroup;
   elements.nextMonthButton.disabled = !hasGroup;
@@ -2313,37 +2313,118 @@ function transferStudentWithHistory(sourceGroupId, targetGroupId, studentId) {
   return true;
 }
 
-function exportCsv() {
-  const pool = getSelectedPool();
-  const group = getSelectedGroup();
-  if (!group) return;
+function exportPoolExcel() {
+  if (!window.XLSX) {
+    window.alert("Библиотека Excel не загружена. Обновите страницу и попробуйте снова.");
+    return;
+  }
 
-  const dates = getTrainingDates(group, elements.monthInput.value);
-  const visibleStudents = getVisibleStudentsForMonth(group, elements.monthInput.value);
+  const exportData = buildPoolExportData();
+  if (!exportData) return;
+
   const rows = [
-    ["Ученик", "Год рождения", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"],
-    ...visibleStudents.map((student) => {
-      const summary = getStudentSummary(group, student.id, dates);
-      return [
-        student.name,
-        student.birthYear || "",
-        ...dates.map((date) => group.attendance[date.iso]?.[student.id] || ""),
-        `${summary.present}/${summary.total}`,
-      ];
-    }),
+    ["Бассейн", exportData.poolName],
+    ["Месяц", exportData.monthValue],
+    [],
   ];
 
-  const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${pool?.name || "attendance"}-${group.start}-${elements.monthInput.value}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  exportData.groups.forEach((groupData, index) => {
+    rows.push(["Группа", groupData.groupLabel]);
+    rows.push(["Дни", groupData.daysLabel]);
+
+    if (groupData.message) {
+      rows.push([groupData.message]);
+    } else {
+      rows.push(["Ученик", "Год рождения", ...groupData.dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"]);
+      groupData.students.forEach((student) => {
+        rows.push([student.name, student.birthYear || "", ...student.marks, student.total]);
+      });
+    }
+
+    if (index < exportData.groups.length - 1) {
+      rows.push([]);
+    }
+  });
+
+  const worksheet = window.XLSX.utils.aoa_to_sheet(rows);
+  const workbook = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(workbook, worksheet, "Журнал");
+  window.XLSX.writeFile(workbook, `${exportData.poolName}-журнал-${exportData.monthValue}.xlsx`);
 }
 
-function exportPoolCsv() {
+function exportPoolPdf() {
+  const jsPdfModule = window.jspdf;
+  if (!jsPdfModule?.jsPDF) {
+    window.alert("Библиотека PDF не загружена. Обновите страницу и попробуйте снова.");
+    return;
+  }
+  if (typeof jsPdfModule.jsPDF.API.autoTable !== "function") {
+    window.alert("Модуль таблиц PDF не загружен. Обновите страницу и попробуйте снова.");
+    return;
+  }
+
+  const exportData = buildPoolExportData();
+  if (!exportData) return;
+
+  const doc = new jsPdfModule.jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  let cursorY = 40;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text(`Бассейн: ${exportData.poolName}`, 40, cursorY);
+  cursorY += 20;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(`Месяц: ${exportData.monthValue}`, 40, cursorY);
+  cursorY += 16;
+
+  exportData.groups.forEach((groupData, index) => {
+    if (index > 0) {
+      cursorY += 14;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(groupData.groupLabel, 40, cursorY);
+    cursorY += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Дни: ${groupData.daysLabel}`, 40, cursorY);
+    cursorY += 8;
+
+    if (groupData.message) {
+      cursorY += 14;
+      doc.text(groupData.message, 40, cursorY);
+      return;
+    }
+
+    const head = [["Ученик", "Год рождения", ...groupData.dates.map((date) => `${date.dayNumber} ${date.weekday}`), "Итого"]];
+    const body = groupData.students.map((student) => [student.name, student.birthYear || "", ...student.marks, student.total]);
+
+    doc.autoTable({
+      startY: cursorY + 6,
+      head,
+      body,
+      margin: { left: 40, right: 40 },
+      styles: { font: "helvetica", fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [32, 56, 96] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      didDrawPage: () => {
+        doc.setFont("helvetica", "normal");
+      },
+    });
+
+    cursorY = doc.lastAutoTable.finalY || cursorY;
+    if (cursorY > 500 && index < exportData.groups.length - 1) {
+      doc.addPage();
+      cursorY = 40;
+    }
+  });
+
+  doc.save(`${exportData.poolName}-журнал-${exportData.monthValue}.pdf`);
+}
+
+function buildPoolExportData() {
   const pool = getSelectedPool();
   if (!pool) return;
 
@@ -2354,51 +2435,56 @@ function exportPoolCsv() {
     return;
   }
 
-  const rows = [
-    ["Бассейн", pool.name],
-    ["Месяц", monthValue],
-    [],
-  ];
-
-  poolGroups.forEach((group, index) => {
+  const groups = poolGroups.map((group) => {
     const dates = getTrainingDates(group, monthValue);
     const visibleStudents = getVisibleStudentsForMonth(group, monthValue);
     const groupLabel = `${pool.name} · ${group.start}`;
-
-    rows.push(["Группа", groupLabel]);
-    rows.push(["Дни", formatDays(group.days)]);
+    const daysLabel = formatDays(group.days);
 
     if (!dates.length) {
-      rows.push(["Нет тренировочных дат в этом месяце"]);
-    } else if (!visibleStudents.length) {
-      rows.push(["Нет активных учеников в этом месяце"]);
-    } else {
-      rows.push(["Ученик", "Год рождения", ...dates.map((date) => `${date.iso} ${date.weekday}`), "Итого"]);
-
-      visibleStudents.forEach((student) => {
-        const summary = getStudentSummary(group, student.id, dates);
-        rows.push([
-          student.name,
-          student.birthYear || "",
-          ...dates.map((date) => group.attendance[date.iso]?.[student.id] || ""),
-          `${summary.present}/${summary.total}`,
-        ]);
-      });
+      return {
+        groupLabel,
+        daysLabel,
+        dates: [],
+        students: [],
+        message: "Нет тренировочных дат в этом месяце",
+      };
     }
 
-    if (index < poolGroups.length - 1) {
-      rows.push([]);
+    if (!visibleStudents.length) {
+      return {
+        groupLabel,
+        daysLabel,
+        dates,
+        students: [],
+        message: "Нет активных учеников в этом месяце",
+      };
     }
+
+    const students = visibleStudents.map((student) => {
+      const summary = getStudentSummary(group, student.id, dates);
+      return {
+        name: student.name,
+        birthYear: student.birthYear || "",
+        marks: dates.map((date) => group.attendance[date.iso]?.[student.id] || ""),
+        total: `${summary.present}/${summary.total}`,
+      };
+    });
+
+    return {
+      groupLabel,
+      daysLabel,
+      dates,
+      students,
+      message: "",
+    };
   });
 
-  const csv = rows.map((row) => row.map(escapeCsvCell).join(";")).join("\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${pool.name}-all-groups-${monthValue}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  return {
+    poolName: pool.name || "Бассейн",
+    monthValue,
+    groups,
+  };
 }
 
 function getStudentSummary(group, studentId, dates) {
@@ -2619,11 +2705,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function escapeCsvCell(value) {
-  const text = String(value ?? "");
-  return `"${text.replaceAll('"', '""')}"`;
 }
 
 function refreshIcons() {
