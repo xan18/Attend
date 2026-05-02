@@ -2353,75 +2353,63 @@ function exportPoolExcel() {
 }
 
 function exportPoolPdf() {
-  const jsPdfModule = window.jspdf;
-  if (!jsPdfModule?.jsPDF) {
+  if (!window.pdfMake?.createPdf) {
     window.alert("Библиотека PDF не загружена. Обновите страницу и попробуйте снова.");
-    return;
-  }
-  if (typeof jsPdfModule.jsPDF.API.autoTable !== "function") {
-    window.alert("Модуль таблиц PDF не загружен. Обновите страницу и попробуйте снова.");
     return;
   }
 
   const exportData = buildPoolExportData();
   if (!exportData) return;
 
-  const doc = new jsPdfModule.jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-  let cursorY = 40;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(`Бассейн: ${exportData.poolName}`, 40, cursorY);
-  cursorY += 20;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text(`Месяц: ${exportData.monthValue}`, 40, cursorY);
-  cursorY += 16;
+  const content = [
+    { text: `Бассейн: ${exportData.poolName}`, style: "title" },
+    { text: `Месяц: ${exportData.monthValue}`, style: "subtitle", margin: [0, 0, 0, 12] },
+  ];
 
   exportData.groups.forEach((groupData, index) => {
-    if (index > 0) {
-      cursorY += 14;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(groupData.groupLabel, 40, cursorY);
-    cursorY += 14;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Дни: ${groupData.daysLabel}`, 40, cursorY);
-    cursorY += 8;
+    content.push({ text: groupData.groupLabel, style: "groupTitle", margin: [0, index > 0 ? 10 : 0, 0, 2] });
+    content.push({ text: `Дни: ${groupData.daysLabel}`, style: "groupMeta", margin: [0, 0, 0, 6] });
 
     if (groupData.message) {
-      cursorY += 14;
-      doc.text(groupData.message, 40, cursorY);
+      content.push({ text: groupData.message, style: "groupMeta", margin: [0, 0, 0, 8] });
       return;
     }
 
-    const head = [["Ученик", "Год рождения", ...groupData.dates.map((date) => `${date.dayNumber} ${date.weekday}`), "Итого"]];
-    const body = groupData.students.map((student) => [student.name, student.birthYear || "", ...student.marks, student.total]);
+    const body = [
+      ["Ученик", "Год рождения", ...groupData.dates.map((date) => `${date.dayNumber} ${date.weekday}`), "Итого"],
+      ...groupData.students.map((student) => [student.name, student.birthYear || "", ...student.marks, student.total]),
+    ];
 
-    doc.autoTable({
-      startY: cursorY + 6,
-      head,
-      body,
-      margin: { left: 40, right: 40 },
-      styles: { font: "helvetica", fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [32, 56, 96] },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      didDrawPage: () => {
-        doc.setFont("helvetica", "normal");
+    content.push({
+      table: {
+        headerRows: 1,
+        dontBreakRows: true,
+        widths: ["*", 64, ...groupData.dates.map(() => 34), 52],
+        body,
       },
+      layout: "lightHorizontalLines",
+      margin: [0, 0, 0, 8],
     });
-
-    cursorY = doc.lastAutoTable.finalY || cursorY;
-    if (cursorY > 500 && index < exportData.groups.length - 1) {
-      doc.addPage();
-      cursorY = 40;
-    }
   });
 
-  doc.save(`${exportData.poolName}-журнал-${exportData.monthValue}.pdf`);
+  const docDefinition = {
+    pageOrientation: "landscape",
+    pageSize: "A4",
+    pageMargins: [24, 24, 24, 24],
+    defaultStyle: {
+      font: "Roboto",
+      fontSize: 8,
+    },
+    styles: {
+      title: { fontSize: 14, bold: true },
+      subtitle: { fontSize: 11 },
+      groupTitle: { fontSize: 11, bold: true },
+      groupMeta: { fontSize: 9, color: "#4b5563" },
+    },
+    content,
+  };
+
+  window.pdfMake.createPdf(docDefinition).download(`${exportData.poolName}-журнал-${exportData.monthValue}.pdf`);
 }
 
 function buildPoolExportData() {
