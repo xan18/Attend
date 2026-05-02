@@ -1671,13 +1671,19 @@ function renderPools() {
     return;
   }
 
+  const currentMonthValue = toMonthValue(new Date());
+
   elements.poolList.innerHTML = state.pools
     .map((pool) => {
       const active = pool.id === state.selectedPoolId ? " active" : "";
-      const groupCount = state.groups.filter((group) => group.poolId === pool.id).length;
-      const studentCount = state.groups
-        .filter((group) => group.poolId === pool.id)
-        .reduce((total, group) => total + getVisibleStudentsForMonth(group, elements.monthInput.value).length, 0);
+      const poolGroups = state.groups.filter((group) => group.poolId === pool.id);
+      const groupCount = poolGroups.filter(
+        (group) => getVisibleStudentsForMonth(group, currentMonthValue).length > 0,
+      ).length;
+      const studentCount = poolGroups.reduce(
+        (total, group) => total + getVisibleStudentsForMonth(group, currentMonthValue).length,
+        0,
+      );
       return `
         <button class="pool-item${active}" type="button" data-pool-id="${pool.id}" aria-pressed="${pool.id === state.selectedPoolId}">
           <span class="pool-name">${escapeHtml(pool.name)}</span>
@@ -2564,3 +2570,4 @@ function refreshIcons() {
     window.lucide.createIcons();
   }
 }
+
